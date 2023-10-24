@@ -5,9 +5,10 @@
 #include <valarray>
 #include <string>
 
+#include <petscts.h> 
 
-#include "boost_1_82_0/boost/numeric/odeint/integrate/integrate_adaptive.hpp"
-#include "boost_1_82_0/boost/numeric/odeint.hpp"
+#include <boost/numeric/odeint/integrate/integrate_adaptive.hpp>
+#include <boost/numeric/odeint.hpp>
 #include "getFunctions_v2.h"
 
 typedef std::valarray<double> state_type;
@@ -23,7 +24,7 @@ std::string SolModelG,EOSModelG,DiffModelG,ViscModelG;
 
 std::valarray<std::valarray<double>> outer(std::valarray<double> first,std::valarray<double>second);
 std::valarray<double> diff(std::valarray<double> input);
-double trapz(auto function, std::valarray<double> x);
+//double trapz(auto function, std::valarray<double> x);
 std::valarray<double> logspace(double lower, double upper, int nodes);
 std::valarray<double> Porosity(double Nb,std::valarray<double> R);
 double Porosity(double Nb,double R);
@@ -490,14 +491,14 @@ std::valarray<double> logspace(double lower, double upper, int nodes){
 }
 
 
-double trapz(auto fun, std::valarray<double> x){
+/*double trapz(auto fun, std::valarray<double> x){
 
     double output=0;
     for (int i =1; i<x.size(); i++){
         output=output+ (fun(i)+fun(i-1))*((x[i+1]-x[i]))*0.5;
     }
     return output;
-}
+}*/
 
 //return first difference 
 std::valarray<double> diff(std::valarray<double> input){

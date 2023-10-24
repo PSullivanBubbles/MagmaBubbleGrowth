@@ -260,8 +260,8 @@ int main(){
     //#%================================!!!
     //#%================================!!!
     //#%~~~solubility model~~~
-    //#%SolModel = 'Ryan 2015'# %Ryan et al. (2015)
-    std::string SolModel = "Liu 2005"; //# %Liu et al. (2005)
+    std::string SolModel = "Ryan 2015"; //# %Ryan et al. (2015)
+    //std::string SolModel = "Liu 2005"; //# %Liu et al. (2005)
     //#%================================!!!
     //#%================================!!!
     //#%~~~Diffusion Model~~~
