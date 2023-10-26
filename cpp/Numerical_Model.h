@@ -5,18 +5,15 @@
 #include <valarray>
 #include <string>
 
-#include <petscts.h> 
+#include <LSODA.h>
+#include <LSODAhelper.h>
 
 #include <boost/numeric/odeint/integrate/integrate_adaptive.hpp>
 #include <boost/numeric/odeint.hpp>
 #include "getFunctions_v2.h"
 
-typedef std::valarray<double> state_type;
-typedef boost::numeric::ublas::vector< double > vector_type;
-
 std::vector<double> outputTime={};
-std::vector<vector_type> outputY={};
-
+std::vector<std::valarray<double> > outputY={};
 
 std::valarray<double> xG,xBG,T_0G,t_TG,P_0G,t_PG,CompositionG;
 double m_0G,melt_RhoG,H2Ot_0G,R_0G,WG,SurfTensG,NbG;
@@ -31,8 +28,8 @@ double Porosity(double Nb,double R);
 double Mass_SingleOxygen(std::valarray<double> Composition);
 void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double>> Y,std::valarray<double> t,double Nb,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P, 
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
-void MYodeFun(const vector_type &Y, vector_type &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
-void myObserver(const vector_type &x, const double t);
+void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
+void myObserver(const std::valarray<double>  &x, const double t);
  
 
 
@@ -60,7 +57,7 @@ void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0
 }
 
 
-void solveSys( const vector_type &Y, vector_type &dYdt, const double t)
+void solveSys( const std::valarray<double>  &Y, std::valarray<double>  &dYdt, const double t)
 {
     MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 }
@@ -112,53 +109,30 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     for (int i =0 ; i<Nodes; i++)
         x[i]=(xB[i+1]+xB[i])/2;
 
+
 //#%uniform concentration; system in equilibrium Although this can be
 //#%changed to represent non-uniform conditions. Any initial concentration
 //#%profile can be set by the user.
     std::valarray<double> H2Ot = std::valarray<double>(H2Ot_0,Nodes);
 
+
 //#%Y_0 is a vector containing quantities to be solved for by ode15s
-    vector_type Y_0 = vector_type(Nodes+1);
+    std::valarray<double> Y_0 = std::valarray<double>(Nodes+1);
     for (int i=0;i<H2Ot.size();i++)
         Y_0[i]=H2Ot_0;
     Y_0[H2Ot.size()]=R_0;
 
 
-//#%Create an anonymous function of the ODE to solve for passing to the
-//#%solver
-    //funsolve = lambda t, Y: MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);
-    //auto funsolve = [](auto t, auto Y){return  MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);};
-
-
-    //typedef std::valarray<double> state_type;
-    //auto funsolve = [x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb](state_type Y, state_type dYdt, double t)
-    //{return  MYodeFun(Y,dYdt,t,x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);}; 
 
     setValues(x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);
-//#%Solve the PDE by method of lines using the ODE solver function ODE15s
-    //#[t,Y]=ode15s(funsolve,tspan,Y_0,options)
-    //typedef std::valarray<double> state_type;
-    //state_type initial_state = Y_0; // Initial value
+
+
     double initial_time = 0;
     double end_time = t_f;
-    double dt = 1e-6;
+    double dt = 1e0;
 
-    typedef boost::numeric::odeint::runge_kutta_cash_karp54<vector_type> rkck54;
-    typedef boost::numeric::odeint::controlled_runge_kutta< rkck54 > ctrl_rkck54;
 
-    boost::numeric::odeint::integrate_adaptive(ctrl_rkck54(),solveSys, Y_0, 0.0,t_f, dt, myObserver);
-    
 
-    /*double sysTime=initial_time;
-    vector_type Y1 = vector_type(Nodes+1);
-    vector_type dYdt = vector_type(Nodes+1);
-    Y1=Y_0;
-
-    while (sysTime<t_f){
-        solveSys(Y1, dYdt,sysTime);
-        Y1=Y1+dt*dYdt;
-        sysTime=sysTime+dt;
-    }*/
 
    
     t = std::valarray<double>(outputTime.size());
@@ -170,15 +144,9 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
         }
     }
 
-
-//#%Get the outputs
-
-    // outputs of functionare passed by reference [R, phi, P, T, x_out, H2Ot_all]
     
     Outputs(Nodes,R_0,L,Y,t,Nb,T_0,t_T,P_0,t_P,R, phi, P, T, x_out, H2Ot_all);
 
-    //std::valarray<std::valarray<double>> output  = {t, R, phi, P, T, x_out, H2Ot_all};
-    //return output;
 }
 //#%==========================================================================
 //#%ODE function to be solved. See appendix A for an explanation and
@@ -188,13 +156,8 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 //#function [dYdt,pb] =  MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,P_0,H2Ot_0,R_0,W,SurfTens,SolFun,DiffFun,ViscFun,pb_fun,PTt_fun,Composition,Nb,t_f,T_f, dTdt, P_f, dPdt)
 
-void MYodeFun(const vector_type &X, vector_type &dXdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb){
+void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb){
 
-//#debugging print time
-
-/*std::cout<<"X is \n \n \n";
-        for (int i= 0; i<X.size(); i++)
-        std::cout<<X[i]<<"\n";*/
 
     std::valarray<double> Y= std::valarray<double>(0.0,X.size());
     std::valarray<double> dYdt= std::valarray<double>(0.0,X.size());
@@ -519,7 +482,7 @@ std::valarray<std::valarray<double>> outer(std::valarray<double> first,std::vala
     return output;
 }
 
-void myObserver(const vector_type &x, const double t){
+void myObserver(const std::valarray<double> &x, const double t){
     outputTime.push_back(t);
     outputY.push_back(x);
 
