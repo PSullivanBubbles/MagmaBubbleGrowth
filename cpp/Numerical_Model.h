@@ -148,14 +148,11 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
     // Set up time-stepping options
-    TSSetInitialTimeStep(ts, initial_time, initial_state, initial_time);
-    TSSetDuration(ts, TS_DURATION_FOREVER); // Time duration
-    TSSetTimeStep(ts, /* time step size */);
-    TSSetMaxSteps(ts, /* maximum number of steps */);
-    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_STEPOVER);
+    TSSetMaxTime(ts, end_time); // Time duration
+    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
 
     // Integrate the ODE system
-    PetscReal end_time = /* end time */;
+    PetscReal end_time = 5*3600;
     TSStep(ts, end_time, &initial_time, &initial_state);
 
     // Process or save the solution as needed
