@@ -12,6 +12,9 @@
 #include <boost/numeric/odeint.hpp>
 #include "getFunctions_v2.h"
 
+#include <petscts.h>
+
+
 std::vector<double> outputTime={};
 std::vector<std::valarray<double> > outputY={};
 
@@ -67,6 +70,7 @@ void solveSys( const std::valarray<double>  &Y, std::valarray<double>  &dYdt, co
 
 void Numerical_Model_v2(std::valarray<double> Composition,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,double SurfTens, double melt_Rho, int Nodes, double R_0,double H2Ot_0,double Nb,double t_nuc,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,std::valarray<double> Numerical_Tolerance,
 std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all){
+
 
 //#%Get the molar mass of anhydrous  melt on a single oxygen basis
     double W = Mass_SingleOxygen(Composition);
@@ -132,6 +136,34 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     double dt = 1e0;
 
 
+    TS  ts; // Timestepping context
+    TSCreate(PETSC_COMM_WORLD, &ts);
+
+    // Set the ODE function
+    TSSetRHSFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
+
+    // Set initial time and state vector
+    PetscReal initial_time = 0.0;
+    Vec initial_state;
+
+
+    // Set up time-stepping options
+    TSSetInitialTimeStep(ts, initial_time, initial_state, initial_time);
+    TSSetDuration(ts, TS_DURATION_FOREVER); // Time duration
+    TSSetTimeStep(ts, /* time step size */);
+    TSSetMaxSteps(ts, /* maximum number of steps */);
+    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_STEPOVER);
+
+    // Integrate the ODE system
+    PetscReal end_time = /* end time */;
+    TSStep(ts, end_time, &initial_time, &initial_state);
+
+    // Process or save the solution as needed
+
+    // Clean up
+    VecDestroy(&initial_state);
+    TSDestroy(&ts);
+    PetscFinalize();
 
 
    
@@ -152,6 +184,42 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 //#%ODE function to be solved. See appendix A for an explanation and
 //#%pseudocode
 //#%==========================================================================
+
+// Function to calculate the derivatives of the ODE system
+PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
+    // Extract the array of state values
+    PetscScalar *u, *udot;
+    VecGetArray(U, &u);
+    VecGetArray(U_t, &udot);
+
+    // Number of ODEs (size of the state vector)
+    int N=0;
+    PetscErrorCode VecGetSize(U, N);
+
+    std::valarray<double> X = std::valarray<double>(0,N);
+    std::valarray<double> dXdt = std::valarray<double>(0,N);
+
+    for (PetscInt i = 0; i < N; i++) {
+        X[i]=u[i];
+        dXdt[i] = udot[i];
+    }
+
+
+    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    // Define your ODE system and calculate derivatives
+    for (PetscInt i = 0; i < N; i++) {
+        u[i]=X[i];
+        udot[i] = dXdt[i];
+    }
+
+    // Restore the array
+    VecRestoreArray(U, &u);
+    VecRestoreArray(U_t, &udot);
+
+    return 0;
+}
+
 
 
 //#function [dYdt,pb] =  MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,P_0,H2Ot_0,R_0,W,SurfTens,SolFun,DiffFun,ViscFun,pb_fun,PTt_fun,Composition,Nb,t_f,T_f, dTdt, P_f, dPdt)
@@ -220,10 +288,6 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
         H2O_BC[i]= (H2Ot[i]+H2Ot[i-1])/2.0;
     }
 
-/*    std::cout<<"H2O_BC is \n \n \n";
-        for (int i= 0; i<H2O_BC.size(); i++)
-        std::cout<<H2O_BC[i]<<"\n";
-*/
     std::valarray<double> DH2Ot = DiffFun(T,P,H2O_BC,W,DiffModel);
 
 //#%====Solve water diffusion==== (equation A.4 from manuscript)
@@ -238,9 +302,6 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     }
 
     std::valarray<double> JH2Ot = -DH2Ot*diff(diffTop)/diff(diffBottom);
-/*std::cout<<"JH2O is \n \n \n";
-        for (int i= 0; i<JH2Ot.size(); i++)
-        std::cout<<JH2Ot[i]<<"\n";*/
 
 
 //#%Gradient of the diffusion flux.
@@ -250,26 +311,11 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
         dJdiff[i]=(((pow((pow(x,3)+pow(R,3)-pow(R_0,3)),(4.0/3.0)))/(pow(x,2)))*JH2Ot)[i];
     dJdiff[JH2Ot.size()]=0;
 
-/*std::cout<<"dJdiff is \n \n \n";
-        for (int i= 0; i<dJdiff.size(); i++)
-        std::cout<<dJdiff[i]<<"\n";*/
-
-
     std::valarray<double> dJH2Odx = (1.0/(pow(x,2.0)))*diff(dJdiff)/diff(xB);
 
-/*std::cout<<"dJH2Odx is \n \n \n";
-        for (int i= 0; i<dJH2Odx.size(); i++)
-        std::cout<<dJH2Odx[i]<<"\n";
-*/
 //#%====solve hydrodynamic equation====
 //#%Compute the viscosity
     std::valarray<double> v = ViscFun(H2Ot,T,Composition,ViscModel);
-
-    //std::cout<<"v is "<<v.size()<<"\t x is "<<x.size()<<"\n";
-//std::cout<<"v is \n \n \n";
-  //  for (int i= 0; i<v.size(); i++)
-    //std::cout<<v[i]<<"\n";
-
 
 //#%Compute integrated viscosity (equation A.5 from manuscript)
     auto I3fun = [v, R, R_0,x](int i){return (v[i]*pow(x[i],2))/(pow((pow(R,3)-pow(R_0,3)+pow(x[i],3)),2));};
@@ -296,13 +342,13 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     }
     dYdt[dJH2Odx.size()]=dRdt;
     dXdt[dJH2Odx.size()]=dRdt;
-    //return dYdt;
 
-/*std::cout<<"dXdt is \n \n \n";
 
-          for (int i= 0; i<dXdt.size(); i++)
-     std::cout<<dXdt[i]<<"\n";*/
 }
+
+
+
+
 //##%==========================================================================
 //##%Functions to get outputs from the ODE solution
 //##%==========================================================================
