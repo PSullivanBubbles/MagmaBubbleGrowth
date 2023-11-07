@@ -6,13 +6,13 @@
                 "${workspaceFolder}/**",
                 "/usr/local/boost_1_82_0/**",
                 "/usr/lib/petscdir/petsc3.15/x86_64-linux-gnu-real/include/**",
-                "/usr/lib/x86_64-linux-gnu/openmpi/include"
+                "/usr/lib/x86_64-linux-gnu/openmpi/include/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/clang++-14",
-            "cStandard": "c17",
-            "cppStandard": "c++14",
-            "intelliSenseMode": "linux-clang-x64"
+            "compilerPath": "/usr/bin/g++",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "linux-gcc-x64"
         }
     ],
     "version": 4
