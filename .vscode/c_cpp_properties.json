@@ -5,8 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/local/boost_1_82_0/**",
-                "/usr/include/**",
-                "/usr/include/petsc/*"
+                "/usr/lib/petscdir/petsc3.15/x86_64-linux-gnu-real/include/**",
+                "/usr/lib/x86_64-linux-gnu/openmpi/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/clang++-14",

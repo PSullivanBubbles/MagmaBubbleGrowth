@@ -145,15 +145,23 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Set initial time and state vector
     PetscReal initial_time = 0.0;
     Vec initial_state;
+    VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state);
+    for (int i = 0; i<Y_0.size() ; i++){
+            VecSetValues(initial_state, 1, &i, &Y_0[i], INSERT_VALUES);
+    }
+
+    TSSetSolution(ts, initial_state);
 
 
     // Set up time-stepping options
+    PetscReal end_time = 5*3600;
     TSSetMaxTime(ts, end_time); // Time duration
     TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
 
     // Integrate the ODE system
-    PetscReal end_time = 5*3600;
-    TSStep(ts, end_time, &initial_time, &initial_state);
+    TSSetType(ts, TSROSW);
+
+    TSSolve(ts, initial_state);
 
     // Process or save the solution as needed
 
@@ -190,11 +198,11 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
     VecGetArray(U_t, &udot);
 
     // Number of ODEs (size of the state vector)
-    int N=0;
-    PetscErrorCode VecGetSize(U, N);
+    int N=1001;
+    VecGetSize(U, &N);
 
-    std::valarray<double> X = std::valarray<double>(0,N);
-    std::valarray<double> dXdt = std::valarray<double>(0,N);
+    std::valarray<double> X = std::valarray<double>(0.0,N);
+    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
     for (PetscInt i = 0; i < N; i++) {
         X[i]=u[i];
