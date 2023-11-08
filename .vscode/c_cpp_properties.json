@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/local/boost_1_82_0/**",
-                "/usr/lib/petscdir/petsc3.15/x86_64-linux-gnu-real/include/**",
+                "/usr/include/petsc",
                 "/usr/lib/x86_64-linux-gnu/openmpi/include/**"
             ],
             "defines": [],
