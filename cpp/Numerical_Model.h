@@ -7,8 +7,8 @@
 
 #include "getFunctions_v2.h"
 
-#include "/usr/include/petsc"
 
+#include "petscts.h"
 
 std::vector<double> outputTime={};
 std::vector<std::valarray<double> > outputY={};

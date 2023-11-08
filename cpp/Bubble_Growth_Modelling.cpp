@@ -16,17 +16,6 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     double P_f = P[-1];
 
 
-//#%Check time parameters for errors 
-
-    //if (t_f <= t_nuc) std::cout<<("The final time is less than or equal to the initial time");
-
-//#%Check water parameter for errors
-
-    //if (H2Ot_0 <= 0) std::cout<<("Enter a positive water concentration");
-
-    //std::cout<<" % % % Model warnings below % % %" ;
-
-
 /*#%Switch-cases to get the parameter bounds for the solubility models
     if (SolModel== 'Liu 2005'):
         Sol_P_min = 0.1*1e6# %Pa
