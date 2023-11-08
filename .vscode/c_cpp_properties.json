@@ -5,11 +5,11 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/local/boost_1_82_0/**",
-                "/usr/lib/petscdir/petsc3.15/x86_64-linux-gnu-real/include/**",
+                "/usr/include/**",
                 "/usr/lib/x86_64-linux-gnu/openmpi/include/**"
             ],
             "defines": [],
-            "compilerPath": "/usr/bin/g++",
+            "compilerPath": "/usr/bin/gcc",
             "cStandard": "c11",
             "cppStandard": "c++11",
             "intelliSenseMode": "linux-gcc-x64"

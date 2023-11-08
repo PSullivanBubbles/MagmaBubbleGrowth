@@ -7,7 +7,7 @@
 
 #include "getFunctions_v2.h"
 
-#include <petscts.h>
+#include "/usr/include/petsc"
 
 
 std::vector<double> outputTime={};
