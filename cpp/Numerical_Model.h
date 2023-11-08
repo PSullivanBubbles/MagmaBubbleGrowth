@@ -5,11 +5,6 @@
 #include <valarray>
 #include <string>
 
-#include <LSODA.h>
-#include <LSODAhelper.h>
-
-#include <boost/numeric/odeint/integrate/integrate_adaptive.hpp>
-#include <boost/numeric/odeint.hpp>
 #include "getFunctions_v2.h"
 
 #include <petscts.h>
@@ -160,6 +155,15 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     // Integrate the ODE system
     TSSetType(ts, TSROSW);
+
+    // Create a TSAdapt object for adaptive time-stepping
+    TSAdapt adapt;
+    TSGetAdapt(ts, &adapt);
+    TSAdaptSetType(adapt, TSADAPTBASIC); // Use a basic adaptive controller
+
+    // Set adaptive time-stepping options (e.g., tolerances)
+    TSSetTolerances(ts, 1e-3, PETSC_NULL, PETSC_DECIDE, PETSC_NULL);
+
 
     TSSolve(ts, initial_state);
 
