@@ -27,7 +27,7 @@ void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
 void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
- 
+PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx);  
 
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
@@ -65,6 +65,7 @@ void solveSys( const std::valarray<double>  &Y, std::valarray<double>  &dYdt, co
 void Numerical_Model_v2(std::valarray<double> Composition,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,double SurfTens, double melt_Rho, int Nodes, double R_0,double H2Ot_0,double Nb,double t_nuc,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,std::valarray<double> Numerical_Tolerance,
 std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all){
 
+    std::cout<<"Starting Numerical Model \n\n";
 
 //#%Get the molar mass of anhydrous  melt on a single oxygen basis
     double W = Mass_SingleOxygen(Composition);
@@ -116,11 +117,13 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 //#%Y_0 is a vector containing quantities to be solved for by ode15s
     std::valarray<double> Y_0 = std::valarray<double>(Nodes+1);
-    for (int i=0;i<H2Ot.size();i++)
+    for (int i=0;i<H2Ot.size();i++){
         Y_0[i]=H2Ot_0;
+    }
     Y_0[H2Ot.size()]=R_0;
+    std::cout<<"Initial radius "<<R_0<<"\n";
 
-
+    
 
     setValues(x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);
 
@@ -129,7 +132,9 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     double end_time = t_f;
     double dt = 1e0;
 
-
+    int argc =0;
+    char **args =NULL;
+    PetscInitialize(&argc, &args, (char *)0, NULL);
     TS  ts; // Timestepping context
     TSCreate(PETSC_COMM_WORLD, &ts);
 
@@ -137,7 +142,6 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     TSSetRHSFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
 
     // Set initial time and state vector
-    PetscReal initial_time = 0.0;
     Vec initial_state;
     VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state);
     for (int i = 0; i<Y_0.size() ; i++){
@@ -148,7 +152,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
     // Set up time-stepping options
-    PetscReal end_time = 5*3600;
+    TSSetTimeStep(ts, 0.001);
     TSSetMaxTime(ts, end_time); // Time duration
     TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
 
@@ -163,6 +167,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Set adaptive time-stepping options (e.g., tolerances)
     TSSetTolerances(ts, 1e-3, PETSC_NULL, PETSC_DECIDE, PETSC_NULL);
 
+    std::cout<<"Start solving \n\n";
 
     TSSolve(ts, initial_state);
 
