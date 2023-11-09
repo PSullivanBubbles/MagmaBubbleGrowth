@@ -7,7 +7,8 @@
 
 #include "getFunctions_v2.h"
 
-#include "petscts.h"
+#include "LSODA.h"
+#include "helper.h"
 
 std::vector<double> outputTime={};
 std::vector<std::valarray<double> > outputY={};
@@ -27,7 +28,8 @@ void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
 void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx);  
+
+static void ODEFunction(double t, double*  U, double* U_t, void *ctx);
 
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
@@ -132,52 +134,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     double end_time = t_f;
     double dt = 1e0;
 
-    int argc =0;
-    char **args =NULL;
-    PetscInitialize(&argc, &args, (char *)0, NULL);
-    TS  ts; // Timestepping context
-    TSCreate(PETSC_COMM_WORLD, &ts);
 
-    // Set the ODE function
-    TSSetRHSFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
-
-    // Set initial time and state vector
-    Vec initial_state;
-    VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state);
-    for (int i = 0; i<Y_0.size() ; i++){
-            VecSetValues(initial_state, 1, &i, &Y_0[i], INSERT_VALUES);
-    }
-
-    TSSetSolution(ts, initial_state);
-
-
-    // Set up time-stepping options
-    double timestep = 1e-6;
-    TSSetTimeStep(ts, timestep);
-    TSSetMaxTime(ts, end_time); // Time duration
-    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
-
-    // Integrate the ODE system
-    TSSetType(ts, TSROSW);
-
-    // Create a TSAdapt object for adaptive time-stepping
-    TSAdapt adapt;
-    TSGetAdapt(ts, &adapt);
-    TSAdaptSetType(adapt, TSADAPTBASIC); // Use a basic adaptive controller
-
-    // Set adaptive time-stepping options (e.g., tolerances)
-    TSSetTolerances(ts, 1e-7, PETSC_NULL, PETSC_DECIDE, PETSC_NULL);
-
-    std::cout<<"Start solving \n\n";
-
-    TSSolve(ts, initial_state);
-
-    // Process or save the solution as needed
-
-    // Clean up
-    VecDestroy(&initial_state);
-    TSDestroy(&ts);
-    PetscFinalize();
 
 
    
@@ -200,20 +157,19 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 //#%==========================================================================
 
 // Function to calculate the derivatives of the ODE system
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
+static void ODEFunction(double t, double*  U, double* U_t, void *ctx) {
     // Extract the array of state values
-    PetscScalar *u, *udot;
-    VecGetArray(U, &u);
-    VecGetArray(U_t, &udot);
+    double *u, *udot;
+    u=U;
+    udot = U_t;
 
     // Number of ODEs (size of the state vector)
     int N=1001;
-    VecGetSize(U, &N);
 
     std::valarray<double> X = std::valarray<double>(0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
-    for (PetscInt i = 0; i < N; i++) {
+    for (int i = 0; i < N; i++) {
         X[i]=u[i];
         dXdt[i] = udot[i];
     }
@@ -222,16 +178,12 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
     std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
-    for (PetscInt i = 0; i < N; i++) {
+    for (int i = 0; i < N; i++) {
         u[i]=X[i];
         udot[i] = dXdt[i];
     }
     myObserver(X,t);
-    // Restore the array
-    VecRestoreArray(U, &u);
-    VecRestoreArray(U_t, &udot);
-
-    return 0;
+    return ;
 }
 
 

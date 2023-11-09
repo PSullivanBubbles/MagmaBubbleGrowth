@@ -1,0 +1,2 @@
+/usr/bin/ar qc liblsoda.a CMakeFiles/lsoda.dir/LSODA.cpp.o
+/usr/bin/ranlib liblsoda.a

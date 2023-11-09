@@ -298,7 +298,7 @@ int main(){
 
 
     double t_nuc = 0;
-    double t_f = 3000; 
+    double t_f = 3000;
 
     std::valarray<double> T_0 = {1100+ 273.15};
     std::valarray<double> t_T = {0};
