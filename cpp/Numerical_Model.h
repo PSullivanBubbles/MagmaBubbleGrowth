@@ -217,15 +217,15 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
         dXdt[i] = udot[i];
     }
 
-
+    std::cout<<"Calling MyOdeFun \n\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-
+    std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
     for (PetscInt i = 0; i < N; i++) {
         u[i]=X[i];
         udot[i] = dXdt[i];
     }
-
+    myObserver(X,t);
     // Restore the array
     VecRestoreArray(U, &u);
     VecRestoreArray(U_t, &udot);

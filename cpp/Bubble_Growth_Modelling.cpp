@@ -334,6 +334,8 @@ int main(){
         std::valarray<std::valarray<double>> x_out;
         std::valarray<std::valarray<double>> H2Ot_all;
 
+         std::cout<<"Starting Numerical Model from main \n\n";
+
         Numerical_Model_v2(Composition, SolModel, DiffModel, ViscModel, EOSModel, SurfTens, melt_Rho, Nodes, R_0, H2Ot_0, Nb, t_nuc, T_0, t_T, P_0, t_P, Numerical_Tolerance,
         t,R,phi, P, T,x_out,H2Ot_all);
 
