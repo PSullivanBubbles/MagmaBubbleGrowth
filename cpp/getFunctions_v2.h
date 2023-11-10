@@ -217,6 +217,8 @@ double pb_fun(double m, double T, double R,std::string EOSModel){
         double pb = (rho+a[0]*pow(rho,2)-pow(rho,2)*((a[2]+2*a[3]*rho+3*a[4]*pow(rho,2)+4*a[5]*pow(rho,3))/(pow(a[1]+a[2]*rho+a[3]*pow(rho,2)+a[4]*pow(rho,3)+a[5]*pow(rho,4),2)))+a[6]*pow(rho,2)*exp(-a[7]*rho)+a[8]*pow(rho,2)*exp(-a[9]*rho))*(83.14472*T);
 
         //% Convert P from bars (equation P&S) to pascals (model)
+if(pb<0)std::cout<<"T: "<<T<<"\t rho: "<<rho<<"\t m: "<<m<<"\t R: "<<R<<"\n";
+
         return  pb/1e-5; //%1 pascal a 1e-5 bars
         }
         return 0;

@@ -121,16 +121,12 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
         Y_0[i]=H2Ot_0;
     }
     Y_0[H2Ot.size()]=R_0;
-    std::cout<<"Initial radius "<<R_0<<"\n";
-
-    
+    std::cout<<"Initial radius "<<R_0<<"\n";   
 
     setValues(x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);
 
-
     double initial_time = 0;
     double end_time = t_f;
-    double dt = 1e0;
 
     int argc =0;
     char **args =NULL;
@@ -152,7 +148,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
     // Set up time-stepping options
-    double timestep = 1e-6;
+    double timestep = 1e-5;
     TSSetTimeStep(ts, timestep);
     TSSetMaxTime(ts, end_time); // Time duration
     TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
@@ -163,10 +159,11 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Create a TSAdapt object for adaptive time-stepping
     TSAdapt adapt;
     TSGetAdapt(ts, &adapt);
-    TSAdaptSetType(adapt, TSADAPTBASIC); // Use a basic adaptive controller
+    TSAdaptSetType(adapt, TSADAPTGLEE); // Use a basic adaptive controller
 
+    double tol = 1e-6;
     // Set adaptive time-stepping options (e.g., tolerances)
-    TSSetTolerances(ts, 1e-7, PETSC_NULL, PETSC_DECIDE, PETSC_NULL);
+    TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL);
 
     std::cout<<"Start solving \n\n";
 
@@ -218,9 +215,9 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
         dXdt[i] = udot[i];
     }
 
-    std::cout<<"Calling MyOdeFun \n\n";
+    //std::cout<<"Calling MyOdeFun \n\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-    std::cout<<"Updated dY/dt \n\n";
+    //std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
     for (PetscInt i = 0; i < N; i++) {
         u[i]=X[i];
@@ -358,8 +355,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     dXdt[dJH2Odx.size()]=dRdt;
 
 
-    std::cout<<"pb is "<<pb<<"\n\n"; 
-    std::cout<<"dR/dt is "<<dRdt<<"\n\n"; 
+    //std::cout<<"pb is "<<pb<<"\n"; 
+    //std::cout<<"dR/dt is "<<dRdt<<"\n"; 
 
 }
 

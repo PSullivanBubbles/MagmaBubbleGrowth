@@ -239,7 +239,7 @@ int main(){
     Krafla = {75.17, 0.22, 12.02, 3.13, 0.11, 0.09, 1.66, 4.58, 2.88, 0, wt_dry, 0};
     PCD = {75.64, 0.08, 12.38, 0.94, 0.07, 0.03, 0.54, 4.17, 4.72, 0.01, wt_dry, 0};
     ROGD = {76.51, 0.03, 12.56, 0.7, 0.07, 0.01, 0.25, 4.47, 4.24, 0, wt_dry, 0};
-
+ 
     //#%================================!!!
     //#%~~~Composition~~~
     std::valarray<double> Composition = Krafla; //# %Tuffen and Castro (2009) locality AO
@@ -272,10 +272,7 @@ int main(){
     //#EOSModel = 'Ideal Gas Law'
     //#%================================!!!
     //#%================================!!!
-
-
-
-
+ 
     //#Constants used for calculations
     double SurfTens = 0.22; //#Value for surface tension (N/m)
     double melt_Rho = 2350; //#Melt density in kg/m^3
@@ -284,8 +281,8 @@ int main(){
     double Nb = 1e11; //#Bubble number density (number per m^3)
     double Phi_0 = 1*1e-6; //#Initial gas volume fraction (Phi)
     //#R_0 = Radius(Nb,Phi_0); //# %R_0 (m) calculated from Phi and Nb
-    double R_0 = 3e-6; //#R_0 (m) set independently
-
+    double R_0 = 3e-4; //#R_0 (m) set independently
+ 
     //#Finite difference parameters
     int Nodes = 1000; //#Number of nodes in spatial discretization
 
@@ -305,9 +302,9 @@ int main(){
 
     std::valarray<double> P_0 = {1*1e6};
     std::valarray<double> t_P = {0};
-
-    double H2Ot_0 = 1.5;
- 
+    
+    double H2Ot_0 = 1.5; 
+     
     //#%%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //#%Run the check function, solubility explore or numerical model
     //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
