@@ -27,8 +27,8 @@ void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
 void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx);  
-
+PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx);  
+PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal shift, Mat A, Mat B, void *ctx);
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
     xG=x_in;
@@ -135,7 +135,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     TSCreate(PETSC_COMM_WORLD, &ts);
 
     // Set the ODE function
-    TSSetRHSFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
+    TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
 
     // Set initial time and state vector
     Vec initial_state;
@@ -148,7 +148,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
     // Set up time-stepping options
-    double timestep = 1e-5;
+    double timestep = 1e-6;
     TSSetTimeStep(ts, timestep);
     TSSetMaxTime(ts, end_time); // Time duration
     TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
@@ -161,9 +161,23 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     TSGetAdapt(ts, &adapt);
     TSAdaptSetType(adapt, TSADAPTGLEE); // Use a basic adaptive controller
 
-    double tol = 1e-6;
+    double tol = 1e-5; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
     // Set adaptive time-stepping options (e.g., tolerances)
     TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL);
+
+
+    //Compute jacobian
+
+    Mat J;
+    MatCreate(PETSC_COMM_WORLD,&J);
+    MatSetSizes(J,Nodes+1,Nodes+1,Nodes+1,Nodes+1);
+
+    // Use a shift for stability (can be adjusted based on your problem)
+    PetscReal shift = 1.0e-6;
+
+    // Set the Jacobian matrix and function
+    TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL);
+
 
     std::cout<<"Start solving \n\n";
 
@@ -172,6 +186,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Process or save the solution as needed
 
     // Clean up
+    MatDestroy(&J);
     VecDestroy(&initial_state);
     TSDestroy(&ts);
     PetscFinalize();
@@ -197,14 +212,14 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 //#%==========================================================================
 
 // Function to calculate the derivatives of the ODE system
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
+PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
     // Extract the array of state values
     PetscScalar *u, *udot;
     VecGetArray(U, &u);
     VecGetArray(U_t, &udot);
 
     // Number of ODEs (size of the state vector)
-    int N=1001;
+    int N;
     VecGetSize(U, &N);
 
     std::valarray<double> X = std::valarray<double>(0.0,N);
@@ -215,23 +230,124 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
         dXdt[i] = udot[i];
     }
 
-    //std::cout<<"Calling MyOdeFun \n\n";
+    std::cout<<"Calling MyOdeFun \n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
     //std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
+    Vec dxdt;
+    VecDuplicate(U_t, &dxdt);
+
     for (PetscInt i = 0; i < N; i++) {
         u[i]=X[i];
         udot[i] = dXdt[i];
+        VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);
     }
     myObserver(X,t);
     // Restore the array
     VecRestoreArray(U, &u);
-    VecRestoreArray(U_t, &udot);
-
+    VecAYPX( dxdt,-1,U_t);
+    std::cout<<"Updated dydt \n";
     return 0;
 }
 
 
+
+PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal shift, Mat A, Mat B, void *ctx) {
+    // Extract the array of state values
+    PetscScalar *u, *udot;
+    VecGetArray(U, &u);
+    VecGetArray(U_t, &udot);
+
+    // Number of ODEs (size of the state vector)
+    int N;
+    VecGetSize(U, &N);
+std::cout<<"Vectors are length"<<N<<"\n";
+
+
+    std::valarray<double> X = std::valarray<double> (0.0,N);
+    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
+
+    for (PetscInt i = 0; i < N; i++) {
+        X[i]=u[i];
+        dXdt[i] = udot[i];
+    }
+    
+    std::valarray<double> Y = X;
+    std::valarray<double> dYdt = dXdt;
+std::cout<<"Jacobian calc 1 at t="<<t<<"\n";
+    MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    for (int i =0; i<N-1; i++){
+        if(i%3==0)
+            X[i]=X[i]+shift;
+    }
+std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
+    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    std::valarray<std::valarray<double> > J = std::valarray<std::valarray<double> > (std::valarray<double>(0.0,N) ,N);
+
+    J[0][0]=(dXdt[0]-dYdt[0])/shift;
+    J[0][1]=(dXdt[1]-dYdt[1])/shift;
+
+    for (int i =3; i<N-1; i=i+3){
+        J[i][i]= (dXdt[i]-dYdt[i])/shift;
+        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+    }
+    X=Y;
+    for (int i =0; i<N-1; i++){
+            X[i]=Y[i]+shift*(i%3==1);
+    }
+std::cout<<"Jacobian calc 3 at t="<<t<<"\n";    
+MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    for (int i =1; i<N-1; i=i+3){
+        J[i][i]= (dXdt[i]-Y[i])/shift;
+        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+    }
+    X=Y;
+    for (int i =0; i<N-1; i++){
+            X[i]=Y[i]+shift*(i%3==2);
+    }
+std::cout<<"Jacobian calc 4 at t="<<t<<"\n";
+MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    for (int i =2; i<N-1; i=i+3){
+        J[i][i]= (dXdt[i]-Y[i])/shift;
+        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+    }
+
+    X=Y;
+    X[N-1]=Y[N-1]+shift;
+std::cout<<"Jacobian calc 5 at t="<<t<<"\n";
+MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+
+    for (int i =0; i<N; i++)
+    J[i][N]=(dXdt[i]-Y[i])/shift;
+std::cout<<"JAcobian in J\n";
+
+int Mmat,Nmat;
+MatGetSize(A,&Mmat, &Nmat);
+
+std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
+
+    for (int i = 0; i<N;i++){
+        for(int j=0;j<N;j++){
+            MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+        }
+        std::cout<<"Loop i = "<<i<<"\n";
+    }
+
+
+
+    std::cout<<"Done Jacobian \n";
+    return 0;
+
+
+}
 
 //#function [dYdt,pb] =  MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,P_0,H2Ot_0,R_0,W,SurfTens,SolFun,DiffFun,ViscFun,pb_fun,PTt_fun,Composition,Nb,t_f,T_f, dTdt, P_f, dPdt)
 
@@ -355,8 +471,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     dXdt[dJH2Odx.size()]=dRdt;
 
 
-    //std::cout<<"pb is "<<pb<<"\n"; 
-    //std::cout<<"dR/dt is "<<dRdt<<"\n"; 
+    std::cout<<"pb is "<<pb<<"\n"; 
+    std::cout<<"dR/dt is "<<dRdt<<"\n"; 
 
 }
 

@@ -1,6 +1,0 @@
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/lsoda.dir
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/test_lsoda.dir
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/benchmark_lsoda.dir
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/test.dir
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/edit_cache.dir
-/home/guest/Desktop/cppMagma/MagmaBubbleGrowth/MagmaBubbleGrowth/cpp/cppLSODA/CMakeFiles/rebuild_cache.dir
