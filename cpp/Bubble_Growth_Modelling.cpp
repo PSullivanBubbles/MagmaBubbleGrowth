@@ -90,15 +90,15 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     print(' ')
     */
     return;
-}
-
+} 
+     
 //#%==========================================================================
 //#%Function to explore solubility conditions of the model inputs. The user
 //#%can use the visuals of this function to determine the nucleation time
 //#%delay for a given initial water or the solubility of the initial
 //#%conditions..etc.
 //#%==========================================================================
-  
+    
 void SolubilityExplore(std::string SolModel, std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P, double R_0, double SurfTens,double H2Ot_0){
 /*
 //#%Get the selected functions
@@ -218,12 +218,12 @@ void plotting(std::valarray<double> t,std::valarray<double> R,std::valarray<doub
 
 //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
 //#%Choose which operation: Solubility explore or Model run
-  
+     
 int main(){
 
     std::string Operation = "Run Model";
 
-
+  
     //"""
     //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //%Set the model properties
@@ -261,50 +261,50 @@ int main(){
     //#================================!!!
     //#%================================!!!
     //#%~~~Viscosity Model~~~
-    //#ViscModel = 'Hess and Dingwell 1996'# %Hess and Dingwell (1996)
+    //#ViscModel = 'Hess and Dingwell 1996'# %Hess and Dingwell (1996)   
     //#ViscModel = 'Peralkaline Giordano 2000'# %Giordano et al. (2000)
     std::string ViscModel = "Giordano 2008"; // # %Giordano et al. (2008)
     //#%================================!!!
     //#%================================!!!
-    //#%~~~EOS model~~~
+    //#%~~~EOS model~~~ 
     std::string EOSModel;
     EOSModel = "Pitzer and Sterner"; //# %Pitzer and Sterner (1994)
-    //#EOSModel = 'Ideal Gas Law'
+    //#EOSModemalloc_consolidate(): invalid chunk sizel = 'Ideal Gas Law'
     //#%================================!!!
     //#%================================!!!  
-   
+        
     //#Constants used for calculations
     double SurfTens = 0.22; //#Value for surface tension (N/m)
     double melt_Rho = 2350; //#Melt density in kg/m^3
-
+     
     //#Spatial parameters
     double Nb = 1e11; //#Bubble number density (number per m^3)
     double Phi_0 = 1*1e-6; //#Initial gas volume fraction (Phi)
     //#R_0 = Radius(Nb,Phi_0); //# %R_0 (m) calculated from Phi and Nb
-    double R_0 = 3e-4; //#R_0 (m) set independently
-  
+    double R_0 = 3e-5; //#R_0 (m) set independently
+   
     //#Finite difference parameters
-    int Nodes = 100; //#Number of nodes in spatial discretization
- 
-    //#%Numerical tolerance:
+    int Nodes = 10; //#Number of nodes in spatial discretization
+    
+    //#%Numerical tolerance:         
     //#%[Absolute tolerance, relative tolerance], see:
     //#% https://www.mathworks.com/help/simbio/ref/absolutetolerance.html
     //#% https://www.mathworks.com/help/simulink/gui/relative-tolerance.html
     //#%For additional information
     std::valarray<double> Numerical_Tolerance = {1e-5, 1e-5};
-
-
-    double t_nuc = 0;
+ 
+  
+    double t_nuc = 0;     
     double t_f = 3000; 
-
+ 
     std::valarray<double> T_0 = {1100+ 273.15};
     std::valarray<double> t_T = {0};
 
     std::valarray<double> P_0 = {1*1e5};
     std::valarray<double> t_P = {0};
-    
-    double H2Ot_0 = 1.5; 
-     
+       
+    double H2Ot_0 = 1.5;  
+        
     //#%%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //#%Run the check function, solubility explore or numerical model
     //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
@@ -318,9 +318,9 @@ int main(){
     if (Operation=="Solubility Explore")
             //#%Explore the solubility for the P-T-t pathway
         SolubilityExplore(SolModel, T_0,t_T,P_0,t_P, R_0, SurfTens, H2Ot_0);
-            
+               
     else if (Operation=="Run Model"){
-              
+                  
         //#%Run the numerical model with the set parameters
         //#tic
         std::valarray<double> t;

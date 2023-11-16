@@ -177,6 +177,10 @@ double pb_fun(double m, double T, double R,std::string EOSModel){
 
         //%Get the pitzer and sterner coefficients
         static double b[10][6] = {0};
+        for (int i = 0;i<10;i++){
+            for (int j =0; j<6;j++)
+                b[i][j]=0;
+        }
         b[0][2]=0.24657688e6; 
         b[0][3]=0.51359951e2 ;
         b[1][2]=0.58638965e0 ;
@@ -217,7 +221,7 @@ double pb_fun(double m, double T, double R,std::string EOSModel){
         double pb = (rho+a[0]*pow(rho,2)-pow(rho,2)*((a[2]+2*a[3]*rho+3*a[4]*pow(rho,2)+4*a[5]*pow(rho,3))/(pow(a[1]+a[2]*rho+a[3]*pow(rho,2)+a[4]*pow(rho,3)+a[5]*pow(rho,4),2)))+a[6]*pow(rho,2)*exp(-a[7]*rho)+a[8]*pow(rho,2)*exp(-a[9]*rho))*(83.14472*T);
 
         //% Convert P from bars (equation P&S) to pascals (model)
-if(pb<0)std::cout<<"T: "<<T<<"\t rho: "<<rho<<"\t m: "<<m<<"\t R: "<<R<<"\n";
+//if(1)std::cout<<"T: "<<T<<"\t rho: "<<rho<<"\t m: "<<m<<"\t R: "<<R<<"\n";
 
         return  pb/1e-5; //%1 pascal a 1e-5 bars
         }
@@ -286,6 +290,7 @@ std::valarray<double> Giordano_2008_visc(std::valarray<double> H2Ot, double T, s
     At = outvalues[0];
     Bt = outvalues[1];
     Ct = outvalues[2];
+
     return pow(10,(At+(Bt/(T-Ct))));}
 
 
@@ -307,8 +312,12 @@ std::valarray<double> Giordano_2008_visc(std::valarray<double> H2Ot, double T, s
 
 //%Pitzer and Sterner, 1994 gas density function, calls PS_myfun
 double density(double P, double T){
-    double rho =0;
+    double rho =0.1;
     static double b[10][6] = {0};
+    for (int i = 0;i<10;i++){
+        for (int j =0; j<6;j++)
+                b[i][j]=0;
+        }
     b[0][2]=0.24657688e6; 
     b[0][3]=0.51359951e2 ;
     b[1][2]=0.58638965e0 ;
@@ -344,18 +353,30 @@ double density(double P, double T){
     double a[10];
     for (int i=0; i<10; i++){
         a[i]=b[i][0]*pow(T,-4) + b[i][1]*pow(T,-2) + b[i][2]*pow(T,-1) + b[i][3] + b[i][4]*T + b[i][5]*pow(T,2);
+        //std::cout<<a[i]<<"\n";
     }
     //% PRT = P/RT where P [bars], R [cm^3*bar/K/mol] and T [K]
     double PRT = P/(83.14472*T);
     //% solve implicit equation for rho and convert to kg/m^3
 
+//std::cout<<"P is "<<P<<"\n";
+//std::cout<<"T is "<<T<<"\n";
+//std::cout<<"PRT is "<<PRT<<"\n";
+
+    auto rhoFun =[a, PRT](double rho){return (rho+a[0]*pow(rho,2)-pow(rho,2)*((a[2]+2*a[3]*rho+3*a[4]*pow(rho,2)+4*a[5]*pow(rho,3))/pow((a[1]+a[2]*rho+a[3]*pow(rho,2)+a[4]*pow(rho,3)+a[5]*pow(rho,4)),2))+a[6]*pow(rho,2)*exp(-a[7]*rho)+a[8]*pow(rho,2)*exp(-a[9]*rho)) - PRT;};
+
+
     std::pair<double, double> res ;
     double lower = 0;
-    double upper = 100;
-    res =  tools::bisect([a, PRT](double rho){return (rho+a[0]*pow(rho,2)-pow(rho,2)*((a[2]+2*a[3]*rho+3*a[4]*pow(rho,2)+4*a[5]*pow(rho,3))/pow((a[1]+a[2]*rho+a[3]*pow(rho,2)+a[4]*pow(rho,3)+a[5]*pow(rho,4)),2))+a[6]*pow(rho,2)*exp(-a[7]*rho)+a[8]*pow(rho,2)*exp(-a[9]*rho)) - PRT;}, lower, upper, [](double l, double r){return abs(l-r) < 1e-8;});
+    double upper = 0.5;
+
+//std::cout<<"rho(lower) = "<<rhoFun(lower)<<"\n";
+//std::cout<<"rho(upper) = "<<rhoFun(upper)<<"\n";
+
+    res =  tools::bisect(rhoFun, lower, upper, [](double l, double r){return abs(l-r) < 1e-3;});
     rho = (res.first +res.second)/2.0;
     //fzero(@PS_myfun,0.001,[],a,PRT)*18.01528*1000;
-
+    //std::cout<<"\n\n COMPUTED RHO "<<rho*18.01528*1000<<"\n\n";
     return rho*18.01528*1000;
 }
 
@@ -370,6 +391,10 @@ return (rho+a[0]*pow(rho,2)-pow(rho,2)*((a[2]+2*a[3]*rho+3*a[4]*pow(rho,2)+4*a[5
 
 std::valarray<std::valarray<double>> Giordano2008_Model(std::valarray<double> H2Ot, std::valarray<double> Composition){
 
+
+
+
+
     double AT      = -4.55;
     std::valarray<double> bb  = {159.56, -173.34, 72.13, 75.69, -38.98, -84.08, 141.54, -2.43, -0.91, 17.62};
     std::valarray<double> cc  = {2.75, 15.72, 8.32, 10.2, -12.29, -99.54, 0.3 };
@@ -377,8 +402,10 @@ std::valarray<std::valarray<double>> Giordano2008_Model(std::valarray<double> H2
     int row = H2Ot.size();
     std::valarray<std::valarray<double>> Comp_rep = std::valarray<std::valarray<double>>(Composition,row);
     
-    for (int i = 0; i<row; i++)
+    for (int i = 0; i<row; i++){
         Comp_rep[i][10]=H2Ot[i];
+        //std::cout<<H2Ot[i]<<" H2Ot \n";
+    }
 
     std::valarray<std::valarray<double>> wtm=Comp_rep;
 
@@ -436,7 +463,7 @@ std::valarray<std::valarray<double>> Giordano2008_Model(std::valarray<double> H2
         bcf[i]={b1[i], b2[i], b3[i], b4[i], b5[i], b6[i], b7[i], b12[i], b13[i], b14[i]};
         ccf[i]={c1[i], c2[i], c3[i], c4[i], c5[i], c6[i], c11[i]}; 
         
-    }
+ }
         
     
     std::valarray<std::valarray<double>> bt,ct;
@@ -447,6 +474,7 @@ std::valarray<std::valarray<double>> Giordano2008_Model(std::valarray<double> H2
     for (int i = 0; i<nx; i++){
         BT[i]          = bt[i].sum();
         CT[i]          = ct[i].sum();
+
     }   
     TG          = BT/(12-AT_rep) + CT;
     F           = BT/(TG*(1 - CT/TG)*(1 - CT/TG));
@@ -463,7 +491,6 @@ std::valarray<std::valarray<double>> Giordano2008_Model(std::valarray<double> H2
 //%Function for computing the mole percent
 std::valarray<std::valarray<double>> molepct_grd(std::valarray<std::valarray<double>> wtm){
     int nr =  wtm.size();
-
     double wtmSum = wtm[0].sum();
     //std::valarray<double> wtmSumV = std::valarray<double>(wtm[0].sum(),nr);
     //% [n x]=MOLEPCT(X) Calculates mole percent oxides from wt % 
@@ -475,23 +502,28 @@ std::valarray<std::valarray<double>> molepct_grd(std::valarray<std::valarray<dou
     //%Replicate the molecular weight row by the number of spatial nodes used
     //%(number of data rows)
     std::valarray<std::valarray<double>> mw_rep = std::valarray<std::valarray<double>>(mw,nr); //reproduce molecular weights for each diffusion node
+
     std::valarray<std::valarray<double>> wtn = mw_rep;
     for (int j=0; j<nr; j++){
         for (int i =0; i<12; i++){
-            if (i==10)
+            if (i==10){
                 wtn[j][i]=wtm[j][10];
+            }
             else
                 wtn[j][i]=(100-wtm[j][10])*wtm[j][i]/(wtmSum);
         }
     }
-
-    mp=wtn/mw_rep;
+mp=wtn/mw_rep;
     std::valarray<double> div = std::valarray<double>(nr);
     for (int i=0; i<nr; i++){
-        div[i]=mp[i].sum()/100.0;
+        div[i]=mp[i].sum()/100.0;  
     }
 
-    mpv= (mp/div);
+mpv=mw_rep;
+
+for (int i = 0 ; i< nr; i++)
+    mpv[i]= (mp[i]/div[i]);
+
     xmf=mpv;
 
     return xmf;

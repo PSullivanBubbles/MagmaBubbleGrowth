@@ -130,66 +130,88 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     int argc =0;
     char **args =NULL;
-    PetscInitialize(&argc, &args, (char *)0, NULL);
+    PetscErrorCode ierr;
+    ierr = PetscInitialize(&argc, &args, (char *)0, NULL); 
     TS  ts; // Timestepping context
-    TSCreate(PETSC_COMM_WORLD, &ts);
+    ierr = TSCreate(PETSC_COMM_WORLD, &ts); 
 
     // Set the ODE function
-    TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL);
+    ierr = TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL); 
 
     // Set initial time and state vector
     Vec initial_state;
-    VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state);
+    ierr = VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state); 
     for (int i = 0; i<Y_0.size() ; i++){
-            VecSetValues(initial_state, 1, &i, &Y_0[i], INSERT_VALUES);
+            ierr = VecSetValues(initial_state, 1, &i, &Y_0[i], INSERT_VALUES); 
+
     }
 
-    TSSetSolution(ts, initial_state);
+    ierr = TSSetSolution(ts, initial_state); 
 
 
     // Set up time-stepping options
     double timestep = 1e-6;
-    TSSetTimeStep(ts, timestep);
-    TSSetMaxTime(ts, end_time); // Time duration
-    TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP);
+    ierr = TSSetTimeStep(ts, timestep); 
+    ierr = TSSetMaxTime(ts, end_time);  // Time duration
+    ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); 
 
     // Integrate the ODE system
-    TSSetType(ts, TSROSW);
+    ierr = TSSetType(ts, TSROSW); 
 
     // Create a TSAdapt object for adaptive time-stepping
     TSAdapt adapt;
-    TSGetAdapt(ts, &adapt);
-    TSAdaptSetType(adapt, TSADAPTGLEE); // Use a basic adaptive controller
+    ierr = TSGetAdapt(ts, &adapt); 
+    ierr = TSAdaptSetType(adapt, TSADAPTGLEE);  // Use a basic adaptive controller
 
     double tol = 1e-5; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
     // Set adaptive time-stepping options (e.g., tolerances)
-    TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL);
+    ierr = TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL); 
 
 
     //Compute jacobian
 
+    double one = 1.0;
+    double zero = 0.0;
+    std::cout<< "Starting Jacobian matrix in Numerical model\n";
     Mat J;
-    MatCreate(PETSC_COMM_WORLD,&J);
-    MatSetSizes(J,Nodes+1,Nodes+1,Nodes+1,Nodes+1);
+    ierr = MatCreate(PETSC_COMM_WORLD,&J); 
+    ierr = MatSetSizes(J,Nodes+1,Nodes+1,Nodes+1,Nodes+1); 
+    for (int i = 0; i<Nodes+1;i++){
+        std::cout<<"Loop i = "<<i<<"\n";
+        for(int j=0;j<Nodes+1;j++){
+            std::cout<<"Loop j = "<<j<<"\n";
+            //std::cout<<A[i][j]<<" Aij\n";
+            if((i==j)||(i+1==j)||(i-1==j)||(i==Nodes))MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
+            else MatSetValues(J,1,&i,1,&j,&zero,INSERT_VALUES);
+        }
+        
+    }
+    std::cout<< "Initialised Jacobian matrix in NUmerical model\n";
+
+
 
     // Use a shift for stability (can be adjusted based on your problem)
     PetscReal shift = 1.0e-6;
 
     // Set the Jacobian matrix and function
-    TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL);
+    ierr = TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL); 
 
 
     std::cout<<"Start solving \n\n";
 
-    TSSolve(ts, initial_state);
+    ierr = TSSolve(ts, initial_state); 
 
     // Process or save the solution as needed
 
     // Clean up
-    MatDestroy(&J);
-    VecDestroy(&initial_state);
-    TSDestroy(&ts);
-    PetscFinalize();
+    ierr = MatDestroy(&J);
+     
+    ierr = VecDestroy(&initial_state);
+     
+    ierr = TSDestroy(&ts);
+     
+    ierr = PetscFinalize();
+     
 
 
    
@@ -214,6 +236,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 // Function to calculate the derivatives of the ODE system
 PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
     // Extract the array of state values
+    PetscFunctionBeginUser;
     PetscScalar *u, *udot;
     VecGetArray(U, &u);
     VecGetArray(U_t, &udot);
@@ -247,16 +270,19 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
     VecRestoreArray(U, &u);
     VecAYPX( dxdt,-1,U_t);
     std::cout<<"Updated dydt \n";
-    return 0;
+    PetscFunctionReturn(0);
 }
 
 
 
-PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal shift, Mat A, Mat B, void *ctx) {
+PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a, Mat A, Mat B, void *ctx) {
     // Extract the array of state values
+    PetscFunctionBeginUser;
     PetscScalar *u, *udot;
     VecGetArray(U, &u);
     VecGetArray(U_t, &udot);
+
+    double shift = 1e-8;
 
     // Number of ODEs (size of the state vector)
     int N;
@@ -280,6 +306,8 @@ std::cout<<"Jacobian calc 1 at t="<<t<<"\n";
     for (int i =0; i<N-1; i++){
         if(i%3==0)
             X[i]=X[i]+shift;
+
+            std::cout<<X[i]<<"\n";
     }
 std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
@@ -307,7 +335,7 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
         J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
     }
     X=Y;
-    for (int i =0; i<N-1; i++){
+    for (int i =1; i<N-1; i++){
             X[i]=Y[i]+shift*(i%3==2);
     }
 std::cout<<"Jacobian calc 4 at t="<<t<<"\n";
@@ -332,19 +360,46 @@ std::cout<<"JAcobian in J\n";
 int Mmat,Nmat;
 MatGetSize(A,&Mmat, &Nmat);
 
+
 std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
 
-    for (int i = 0; i<N;i++){
-        for(int j=0;j<N;j++){
+    for (int i = 0; i<Mmat;i++){
+        std::cout<<"Loop i = "<<i<<"\n";
+        for(int j=0;j<Nmat;j++){
+            std::cout<<"Loop j = "<<j<<"\n";
+            //std::cout<<A[i][j]<<" Aij\n";
             MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
         }
-        std::cout<<"Loop i = "<<i<<"\n";
+        
     }
 
 
 
+//Mat Jmat;
+//PetscErrorCode ierr;
+//std::cout<<"creating\n";
+   // ierr = MatCreate(PETSC_COMM_WORLD,&Jmat); 
+   // std::cout<<"Setting size\n";
+   // ierr = MatSetSizes(Jmat,Mmat+1,Mmat+1,Nmat+1,Nmat+1); 
+
+
+
+    for (int i = 1; i<N;i++){
+        std::cout<<"Loop i = "<<i<<"\n";
+        for(int j=1;j<N;j++){
+            std::cout<<"Loop j = "<<j<<"\n";
+            MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+        }
+        
+    }
+   // MatAssemblyBegin(Jmat,MAT_FINAL_ASSEMBLY);
+   // MatAssemblyEnd(Jmat,MAT_FINAL_ASSEMBLY);
+
     std::cout<<"Done Jacobian \n";
-    return 0;
+
+    //MatCopy(A,Jmat,DIFFERENT_NONZERO_PATTERN);
+
+    PetscFunctionReturn(0);
 
 
 }
@@ -358,6 +413,7 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     std::valarray<double> dYdt= std::valarray<double>(0.0,X.size());
     for (int i = 0; i<X.size();i++){
         Y[i]=X[i];
+        //std::cout<<"Y is "<<Y[i]<<"\n";
     }
 
 //#%extract individual concentrations
@@ -382,18 +438,19 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     auto I1fun = [H2Ot_0,x ](int i){return (1.0/100)*H2Ot_0*pow(x[i],2);};
         double I1=0;
     for (int i =1; i<x.size(); i++){
-        I1=I1+ (I1fun(i)+I1fun(i-1))*((x[i+1]-x[i]))*0.5;
+        I1=I1+ (I1fun(i)+I1fun(i-1))*((x[i]-x[i-1]))*0.5;
     }
 
 
     auto I2fun = [H2Ot, x](int i)->double {return (1.0/100)*H2Ot[i]*pow(x[i],2);};
     double I2=0;
     for (int i =1; i<x.size(); i++){
-        I2=I2+ (I2fun(i)+I2fun(i-1))*((x[i+1]-x[i]))*0.5;
+        I2=I2+ (I2fun(i)+I2fun(i-1))*((x[i]-x[i-1]))*0.5;
     }
 
 
     double m=m_0+4*PI*melt_Rho*(I1-I2);
+   // std::cout<<"\n\n m is "<<m<<"\n\n";
 
 //#%Compute pressure of the gas  in the bubble from EOS
 //#%(section 2.3.2 of main manuscript)
@@ -443,7 +500,9 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 //#%====solve hydrodynamic equation====
 //#%Compute the viscosity
     std::valarray<double> v = ViscFun(H2Ot,T,Composition,ViscModel);
-
+//for (int i =0;i<nx;i++)if(1)std::cout<<"viscosity at i = "<<v[i]<<"\n";
+//std::cout<<"R is "<<R<<"\n";
+//std::cout<<"R0 is "<<R_0<<"\n";
 //#%Compute integrated viscosity (equation A.5 from manuscript)
     auto I3fun = [v, R, R_0,x](int i){return (v[i]*pow(x[i],2))/(pow((pow(R,3)-pow(R_0,3)+pow(x[i],3)),2));};
     //double I3=trapz(I3fun,x);
@@ -452,11 +511,18 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 
 
 
-
-
     for (int i =1; i<x.size(); i++){
-        I3+= (I3fun(i)+I3fun(i-1))*((x[i+1]-x[i]))*0.5;
+        I3+= (I3fun(i)+I3fun(i-1))*((x[i]-x[i-1]))*0.5;
+
+ //       std::cout<<"(x[i]-x[i-1]) is  "<<(x[i]-x[i-1])<<" \n";
+ //       std::cout<<"(I3fun(i)+I3fun(i-1))is  "<<(I3fun(i)+I3fun(i-1))<<" \n";
     }
+ //   if(I3<0)std::cout<<"\n\nI3 NEGATIVE \n\n";
+//std::cout<<"\n\nI3 is  "<<I3<<" \n\n";
+
+//std::cout<<" pb is "<<pb<<"\n";
+//std::cout<<" P is "<<P<<"\n";
+//std::cout<<" Laplace is "<<(2*(SurfTens)/R)<<"\n";
 
 //#%Solve Rayleigh-Plesset equation (equation A.6 from manuscript)
     double dRdt= ((pb-P-(2*(SurfTens)/R))/(12*pow(R,2)))/I3;
