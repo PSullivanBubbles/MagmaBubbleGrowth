@@ -172,20 +172,40 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     double one = 1.0;
     double zero = 0.0;
-    std::cout<< "Starting Jacobian matrix in Numerical model\n";
+   // std::cout<< "Starting Jacobian matrix in Numerical model\n";
     Mat J;
-    ierr = MatCreate(PETSC_COMM_WORLD,&J); 
-    ierr = MatSetSizes(J,Nodes+1,Nodes+1,Nodes+1,Nodes+1); 
-    for (int i = 0; i<Nodes+1;i++){
-        std::cout<<"Loop i = "<<i<<"\n";
-        for(int j=0;j<Nodes+1;j++){
-            std::cout<<"Loop j = "<<j<<"\n";
-            //std::cout<<A[i][j]<<" Aij\n";
-            if((i==j)||(i+1==j)||(i-1==j)||(i==Nodes))MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
-            else MatSetValues(J,1,&i,1,&j,&zero,INSERT_VALUES);
+
+    int nonZero[Nodes+1];
+    nonZero[0]=2;
+    nonZero[Nodes]=Nodes+1;
+    for (int i = 1; i<Nodes; i++)nonZero[i]=3;
+//std::cout<<"Nodes = "<<Nodes<<"\n";
+    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,Nodes+1,Nodes+1,3,nonZero,&J); 
+    for (int i = 0; i<(Nodes+1);i++){
+        //std::cout<<"Loop i = "<<i<<"\n";
+
+        if(i==0){
+            for(int j=0;j<2;j++){
+                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
+                //std::cout<<"Loop j = "<<j<<"\n";
+            }
         }
-        
+        else if(i==Nodes){
+            for(int j=0;j<(Nodes+1);j++){
+                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
+                //std::cout<<"Loop j = "<<j<<"\n";   
+            }     
+        }
+        else{
+            for(int j=i-1;j<(i+2);j++){
+                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
+                //std::cout<<"ELSE Loop j = "<<j<<" i = "<<i<<" \n";
+            }
+        }
     }
+
+    MatAssemblyBegin(J,MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(J,MAT_FINAL_ASSEMBLY);
     std::cout<< "Initialised Jacobian matrix in NUmerical model\n";
 
 
@@ -307,7 +327,7 @@ std::cout<<"Jacobian calc 1 at t="<<t<<"\n";
         if(i%3==0)
             X[i]=X[i]+shift;
 
-            std::cout<<X[i]<<"\n";
+            //std::cout<<X[i]<<"\n";
     }
 std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
@@ -359,46 +379,44 @@ std::cout<<"JAcobian in J\n";
 
 int Mmat,Nmat;
 MatGetSize(A,&Mmat, &Nmat);
+int Nodes = Nmat;
 
+//std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
 
-std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
+    for (int i = 0; i<(Nmat);i++){
+        //std::cout<<"Loop i = "<<i<<"\n";
 
-    for (int i = 0; i<Mmat;i++){
-        std::cout<<"Loop i = "<<i<<"\n";
-        for(int j=0;j<Nmat;j++){
-            std::cout<<"Loop j = "<<j<<"\n";
-            //std::cout<<A[i][j]<<" Aij\n";
-            MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+        if(i==0){
+            for(int j=0;j<2;j++){
+                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                //std::cout<<"Loop j = "<<j<<"\n";
+            }
         }
-        
+        else if(i==Nmat-1){
+            for(int j=0;j<(Nmat-1);j++){
+                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                //std::cout<<"Loop j = "<<j<<"\n";   
+            }     
+        }
+        else{
+            for(int j=i-1;j<(i+2);j++){
+                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                //std::cout<<"ELSE Loop j = "<<j<<" i = "<<i<<" \n";
+            }
+        }
     }
 
-
-
-//Mat Jmat;
-//PetscErrorCode ierr;
-//std::cout<<"creating\n";
-   // ierr = MatCreate(PETSC_COMM_WORLD,&Jmat); 
-   // std::cout<<"Setting size\n";
-   // ierr = MatSetSizes(Jmat,Mmat+1,Mmat+1,Nmat+1,Nmat+1); 
-
-
-
-    for (int i = 1; i<N;i++){
-        std::cout<<"Loop i = "<<i<<"\n";
-        for(int j=1;j<N;j++){
-            std::cout<<"Loop j = "<<j<<"\n";
-            MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
-        }
-        
-    }
-   // MatAssemblyBegin(Jmat,MAT_FINAL_ASSEMBLY);
-   // MatAssemblyEnd(Jmat,MAT_FINAL_ASSEMBLY);
 
     std::cout<<"Done Jacobian \n";
+    
 
-    //MatCopy(A,Jmat,DIFFERENT_NONZERO_PATTERN);
-
+    MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY);
+    if (A != B) {
+        MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY);
+    }
+    std::cout<<"Done Jacobian Function \n";
     PetscFunctionReturn(0);
 
 
@@ -537,8 +555,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     dXdt[dJH2Odx.size()]=dRdt;
 
 
-    std::cout<<"pb is "<<pb<<"\n"; 
-    std::cout<<"dR/dt is "<<dRdt<<"\n"; 
+   // std::cout<<"pb is "<<pb<<"\n"; 
+   // std::cout<<"dR/dt is "<<dRdt<<"\n"; 
 
 }
 

@@ -313,14 +313,14 @@ int main(){
     //#%calibration (from literature), or if there are errors in parameter
     //#%signs (e.g., negative temperature rate for positive temperature change)
     Checks(SolModel, DiffModel, t_nuc, t_f,T_0, P_0, H2Ot_0);
-
+     
     //#%The switch which either runs the parameter exploration or the model
-    if (Operation=="Solubility Explore")
+    if (Operation=="Solubility Explore") 
             //#%Explore the solubility for the P-T-t pathway
         SolubilityExplore(SolModel, T_0,t_T,P_0,t_P, R_0, SurfTens, H2Ot_0);
-               
+                 
     else if (Operation=="Run Model"){
-                  
+                             
         //#%Run the numerical model with the set parameters
         //#tic
         std::valarray<double> t;
