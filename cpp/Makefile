@@ -24,11 +24,11 @@ OBJS = $(SRCS:.cpp=.o)
 
 # Compile the program
 $(EXECUTABLE): $(OBJS)
-	$(CXX) -o $@ $(OBJS) -L$(PETSC_LIB) -lpetsc
+	$(CXX) -o $@ $(OBJS) -L$(PETSC_LIB) -lpetsc -lmpi
 
 # Compile source files
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -I$(PETSC_INC) -I$(MPI_INC) -c $< -o $@
+	$(CXX) $(CXXFLAGS) -I$(PETSC_INC) -I$(MPI_INC)  -c $< -o $@
 
 # Clean up
 clean:

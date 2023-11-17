@@ -7,7 +7,6 @@
 #include "Numerical_Model.h"
 #include "petscerror.h"
 
-
 void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_f, std::valarray<double> T, std::valarray<double> P, double H2Ot_0){
     int solFlag = 1;
     int diffFlag = 1;

@@ -10,7 +10,6 @@
 #include "petscts.h"
 #include "petscerror.h"
 
-
 std::vector<double> outputTime={};
 std::vector<std::valarray<double> > outputY={};
 
