@@ -5,13 +5,16 @@
 #include <valarray>
 #include <string>
 
+
+#include "boost/numeric/odeint.hpp"
 #include "getFunctions_v2.h"
 
-#include "petscts.h"
-#include "petscerror.h"
+typedef std::valarray<double> state_type;
+typedef boost::numeric::ublas::vector< double > vector_type;
+typedef boost::numeric::ublas::matrix< double > matrix_type;
 
 std::vector<double> outputTime={};
-std::vector<std::valarray<double> > outputY={};
+std::vector<vector_type> outputY={};
 
 std::valarray<double> xG,xBG,T_0G,t_TG,P_0G,t_PG,CompositionG;
 double m_0G,melt_RhoG,H2Ot_0G,R_0G,WG,SurfTensG,NbG;
@@ -28,8 +31,8 @@ void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
 void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx);  
-PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal shift, Mat A, Mat B, void *ctx);
+//void ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx);  
+void JacobianFunction(const vector_type &x, matrix_type J, const double &t, vector_type &dxdt);
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
     xG=x_in;
@@ -55,15 +58,30 @@ void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0
 }
 
 
-void solveSys( const std::valarray<double>  &Y, std::valarray<double>  &dYdt, const double t)
+void solveSys( const vector_type &Y, vector_type &dYdt, const double t)
 {
-    MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+    int N = Y.size();
+    std::valarray<double> X = std::valarray<double>(0.0,N);
+    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
+
+    for(int i =0; i<N;i++){
+        X[i]=Y[i];
+        dXdt[i]=dYdt[i];
+    }
+
+    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+
+    for(int i =0; i<N;i++){
+        dYdt[i]=dXdt[i];
+    }
+
+
 }
 
 
 
 
-PetscErrorCode Numerical_Model_v2(std::valarray<double> Composition,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,double SurfTens, double melt_Rho, int Nodes, double R_0,double H2Ot_0,double Nb,double t_nuc,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,std::valarray<double> Numerical_Tolerance,
+void Numerical_Model_v2(std::valarray<double> Composition,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,double SurfTens, double melt_Rho, int Nodes, double R_0,double H2Ot_0,double Nb,double t_nuc,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,std::valarray<double> Numerical_Tolerance,
 std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all){
 
     std::cout<<"Starting Numerical Model \n\n";
@@ -117,7 +135,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
 //#%Y_0 is a vector containing quantities to be solved for by ode15s
-    std::valarray<double> Y_0 = std::valarray<double>(Nodes+1);
+    vector_type Y_0 = vector_type(Nodes+1);
     for (int i=0;i<H2Ot.size();i++){
         Y_0[i]=H2Ot_0;
     }
@@ -126,116 +144,33 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     setValues(x,xB,m_0,melt_Rho,T_0,t_T,P_0,t_P,H2Ot_0,R_0,W,SurfTens,SolModel, DiffModel, ViscModel, EOSModel,Composition,Nb);
 
+    std::cout<<"Start solving \n\n";
     double initial_time = 0;
     double end_time = t_f;
+    double dt = 1e-6;
 
-    int argc =0;
-    char **args =NULL;
-    PetscErrorCode ierr;
-    TS  ts; // Timestepping context
-    ierr = TSCreate(PETSC_COMM_WORLD, &ts); 
+   // typedef boost::numeric::odeint::runge_kutta_cash_karp54<vector_type> rkck54;
+   // typedef boost::numeric::odeint::controlled_runge_kutta< rkck54 > ctrl_rkck54;
 
-    // Set the ODE function
-    ierr = TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL); 
+   // typedef boost::numeric::odeint::rosenbrock4<vector_type> rose;
 
-    // Set initial time and state vector
-    Vec initial_state;
-    ierr = VecCreateSeq(PETSC_COMM_WORLD, Y_0.size(), &initial_state); 
-    for (int i = 0; i<Y_0.size() ; i++){
-            ierr = VecSetValues(initial_state, 1, &i, &Y_0[i], INSERT_VALUES); 
-
-    }
-
-    ierr = TSSetSolution(ts, initial_state); 
+//typedef boost::numeric::odeint::rosenbrock4<vector_type> stepper_type;
+////typedef boost::numeric::odeint::rosenbrock4_controller< stepper_type > controlled_stepper_type;
+//typedef boost::numeric::odeint::rosenbrock4_dense_output< controlled_stepper_type > dense_output_type;
 
 
-    // Set up time-stepping options
-    double timestep = 1e-6;
-    ierr = TSSetTimeStep(ts, timestep); 
-    ierr = TSSetMaxTime(ts, end_time);  // Time duration
-    ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); 
+    //boost::numeric::odeint::integrate_const(dense_output_type(1e-5,1e-5),make_pair(solveSys,JacobianFunction), Y_0, 0.0,t_f, dt, myObserver);
 
-    // Integrate the ODE system
-    ierr = TSSetType(ts, TSROSW); 
+ boost::numeric::odeint::integrate(solveSys,Y_0,initial_time,t_f,dt);
 
-    // Create a TSAdapt object for adaptive time-stepping
-    TSAdapt adapt;
-    ierr = TSGetAdapt(ts, &adapt); 
-    ierr = TSAdaptSetType(adapt, TSADAPTGLEE);  // Use a basic adaptive controller
+   // boost::numeric::odeint::integrate(solveSys, Y_0, 0.0,t_f, dt, myObserver,);
 
-    double tol = 1e-5; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
-    // Set adaptive time-stepping options (e.g., tolerances)
-    ierr = TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL); 
-
-
-    //Compute jacobian
-
-    double one = 1.0;
-    double zero = 0.0;
-   // std::cout<< "Starting Jacobian matrix in Numerical model\n";
-    Mat J;
-
-    int nonZero[Nodes+1];
-    nonZero[0]=2;
-    nonZero[Nodes]=Nodes+1;
-    for (int i = 1; i<Nodes; i++)nonZero[i]=3;
-//std::cout<<"Nodes = "<<Nodes<<"\n";
-    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,Nodes+1,Nodes+1,3,nonZero,&J); 
-    for (int i = 0; i<(Nodes+1);i++){
-        //std::cout<<"Loop i = "<<i<<"\n";
-
-        if(i==0){
-            for(int j=0;j<2;j++){
-                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
-                //std::cout<<"Loop j = "<<j<<"\n";
-            }
-        }
-        else if(i==Nodes){
-            for(int j=0;j<(Nodes+1);j++){
-                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
-                //std::cout<<"Loop j = "<<j<<"\n";   
-            }     
-        }
-        else{
-            for(int j=i-1;j<(i+2);j++){
-                MatSetValues(J,1,&i,1,&j,&one,INSERT_VALUES);
-                //std::cout<<"ELSE Loop j = "<<j<<" i = "<<i<<" \n";
-            }
-        }
-    }
-
-    ierr=MatAssemblyBegin(J,MAT_FINAL_ASSEMBLY);
-    CHKERRQ(ierr);
-    CHKERRQ(MatAssemblyEnd(J,MAT_FINAL_ASSEMBLY));
-    std::cout<< "Initialised Jacobian matrix in NUmerical model\n";
-
-
-
-    // Use a shift for stability (can be adjusted based on your problem)
-    PetscReal shift = 1.0e-6;
-
-    // Set the Jacobian matrix and function
-    CHKERRQ(TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL)); 
-
-
-    std::cout<<"Start solving \n\n";
-
-    CHKERRQ(TSSolve(ts, initial_state)); 
 
     // Process or save the solution as needed
 
     // Clean up
-    ierr = MatDestroy(&J);
-     
-    ierr = VecDestroy(&initial_state);
-     
-    ierr = TSDestroy(&ts);
-     
-    ierr = PetscFinalize();
-     
 
 
-   
     t = std::valarray<double>(outputTime.size());
     std::valarray<std::valarray<double>> Y = std::valarray<std::valarray<double>>(std::valarray<double>(Y_0.size()),t.size());
     for (int i =0; i<outputTime.size(); i++){
@@ -247,7 +182,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     
     Outputs(Nodes,R_0,L,Y,t,Nb,T_0,t_T,P_0,t_P,R, phi, P, T, x_out, H2Ot_all);
-    return 0;
+    return;
 }
 //#%==========================================================================
 //#%ODE function to be solved. See appendix A for an explanation and
@@ -255,7 +190,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 //#%==========================================================================
 
 // Function to calculate the derivatives of the ODE system
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
+/*PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
     // Extract the array of state values
     PetscFunctionBeginUser;
     PetscScalar *u, *udot;
@@ -293,28 +228,21 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
     //std::cout<<"Updated dydt \n";
     PetscFunctionReturn(0);
 }
+*/
 
 
-
-PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a, Mat A, Mat B, void *ctx) {
+void JacobianFunction(const vector_type &u, matrix_type J, const double &t, vector_type &udot) {
     // Extract the array of state values
-    PetscFunctionBeginUser;
-    PetscScalar *u, *udot;
-    VecGetArray(U, &u);
-    VecGetArray(U_t, &udot);
 
-    double shift = 1e-8;
-
-    // Number of ODEs (size of the state vector)
-    int N;
-    VecGetSize(U, &N);
+    double shift = 1e-6;
+    int N = u.size();
 //std::cout<<"Vectors are length"<<N<<"\n";
 
 
     std::valarray<double> X = std::valarray<double> (0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
-    for (PetscInt i = 0; i < N; i++) {
+    for (int i = 0; i < N; i++) {
         X[i]=u[i];
         dXdt[i] = udot[i];
     }
@@ -333,15 +261,15 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
 //std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
-    std::valarray<std::valarray<double> > J = std::valarray<std::valarray<double> > (std::valarray<double>(0.0,N) ,N);
+    
 
-    J[0][0]=(dXdt[0]-dYdt[0])/shift;
-    J[0][1]=(dXdt[1]-dYdt[1])/shift;
+    J(0,0)=(dXdt[0]-dYdt[0])/shift;
+    J(0,1)=(dXdt[1]-dYdt[1])/shift;
 
     for (int i =3; i<N-1; i=i+3){
-        J[i][i]= (dXdt[i]-dYdt[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J(i,i)= (dXdt[i]-dYdt[i])/shift;
+        J(i,i-1)= (dXdt[i-1]-Y[i-1])/shift;
+        J(i,i+1)= (dXdt[i+1]-Y[i+1])/shift;
     }
     X=Y;
     for (int i =0; i<N-1; i++){
@@ -351,9 +279,9 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
 MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =1; i<N-1; i=i+3){
-        J[i][i]= (dXdt[i]-Y[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J(i,i)= (dXdt[i]-dYdt[i])/shift;
+        J(i,i-1)= (dXdt[i-1]-Y[i-1])/shift;
+        J(i,i+1)= (dXdt[i+1]-Y[i+1])/shift;
     }
     X=Y;
     for (int i =1; i<N-1; i++){
@@ -363,59 +291,23 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
 MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =2; i<N-1; i=i+3){
-        J[i][i]= (dXdt[i]-Y[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J(i,i)= (dXdt[i]-dYdt[i])/shift;
+        J(i,i-1)= (dXdt[i-1]-Y[i-1])/shift;
+        J(i,i+1)= (dXdt[i+1]-Y[i+1])/shift;
     }
 
     X=Y;
+
+    shift = 1e-8;
     X[N-1]=Y[N-1]+shift;
 //std::cout<<"Jacobian calc 5 at t="<<t<<"\n";
-MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
 
     for (int i =0; i<N; i++)
-    J[i][N]=(dXdt[i]-Y[i])/shift;
-//std::cout<<"JAcobian in J\n";
+    J(i,N)=(dXdt[i]-Y[i])/shift;
 
-int Mmat,Nmat;
-MatGetSize(A,&Mmat, &Nmat);
-int Nodes = Nmat;
-
-//std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
-
-    for (int i = 0; i<(Nmat);i++){
-        //std::cout<<"Loop i = "<<i<<"\n";
-
-        if(i==0){
-            for(int j=0;j<2;j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
-                //std::cout<<"Loop j = "<<j<<"\n";
-            }
-        }
-        else if(i==Nmat-1){
-            for(int j=0;j<(Nmat-1);j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
-                //std::cout<<"Loop j = "<<j<<"\n";   
-            }     
-        }
-        else{
-            for(int j=i-1;j<(i+2);j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
-                //std::cout<<"ELSE Loop j = "<<j<<" i = "<<i<<" \n";
-            }
-        }
-    }
-
-
-    std::cout<<"Done Jacobian \n";
-    
-        VecRestoreArray(U, &u);
-        VecRestoreArray(U_t, &udot);
-
-    std::cout<<"Done Jacobian Function \n";
-    PetscFunctionReturn(0);
-
+    return;
 
 }
 
@@ -739,7 +631,7 @@ std::valarray<std::valarray<double>> outer(std::valarray<double> first,std::vala
     return output;
 }
 
-void myObserver(const std::valarray<double> &x, const double t){
+void myObserver(const vector_type &x, const double t){
     outputTime.push_back(t);
     outputY.push_back(x);
 

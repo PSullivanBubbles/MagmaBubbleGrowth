@@ -5,7 +5,6 @@
 #include <string>
 
 #include "Numerical_Model.h"
-#include "petscerror.h"
 
 void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_f, std::valarray<double> T, std::valarray<double> P, double H2Ot_0){
     int solFlag = 1;
@@ -332,12 +331,10 @@ int main(){
         std::valarray<std::valarray<double>> x_out;
         std::valarray<std::valarray<double>> H2Ot_all;
  
-         std::cout<<"Starting Numerical Model from main \n\n";
-        int argc =0;
-        char **args =NULL;
-        PetscInitialize(&argc, &args, (char *)0, NULL); 
-        CHKERRQ(Numerical_Model_v2(Composition, SolModel, DiffModel, ViscModel, EOSModel, SurfTens, melt_Rho, Nodes, R_0, H2Ot_0, Nb, t_nuc, T_0, t_T, P_0, t_P, Numerical_Tolerance,
-        t,R,phi, P, T,x_out,H2Ot_all));
+        std::cout<<"Starting Numerical Model from main \n\n";
+
+        Numerical_Model_v2(Composition, SolModel, DiffModel, ViscModel, EOSModel, SurfTens, melt_Rho, Nodes, R_0, H2Ot_0, Nb, t_nuc, T_0, t_T, P_0, t_P, Numerical_Tolerance,
+        t,R,phi, P, T,x_out,H2Ot_all);
 
         //#toc
         //std::cout<<"--- "<<(time.time() - start_time)<<" seconds --- \n" ;
