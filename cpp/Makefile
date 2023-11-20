@@ -28,7 +28,7 @@ $(EXECUTABLE): $(OBJS)
 
 # Compile source files
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) -I$(PETSC_INC) -I$(MPI_INC)  -c $< -o $@
+	$(CXX) -g $(CXXFLAGS) -I$(PETSC_INC) -I$(MPI_INC)  -c $< -o $@
 
 # Clean up
 clean:

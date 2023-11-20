@@ -278,7 +278,7 @@ int main(){
     //#Constants used for calculations
     double SurfTens = 0.22; //#Value for surface tension (N/m)
     double melt_Rho = 2350; //#Melt density in kg/m^3
-     
+      
     //#Spatial parameters
     double Nb = 1e11; //#Bubble number density (number per m^3)
     double Phi_0 = 1*1e-6; //#Initial gas volume fraction (Phi)
@@ -301,12 +301,12 @@ int main(){
  
     std::valarray<double> T_0 = {1100+ 273.15};
     std::valarray<double> t_T = {0};
-
+ 
     std::valarray<double> P_0 = {1*1e5};
     std::valarray<double> t_P = {0};
        
     double H2Ot_0 = 1.5;  
-        
+           
     //#%%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //#%Run the check function, solubility explore or numerical model
     //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
@@ -322,7 +322,7 @@ int main(){
         SolubilityExplore(SolModel, T_0,t_T,P_0,t_P, R_0, SurfTens, H2Ot_0);
                  
     else if (Operation=="Run Model"){
-                             
+                              
         //#%Run the numerical model with the set parameters
         //#tic
         std::valarray<double> t;

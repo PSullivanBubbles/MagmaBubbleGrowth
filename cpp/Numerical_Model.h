@@ -147,26 +147,27 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     }
 
-    ierr = TSSetSolution(ts, initial_state); 
+    ierr = TSSetSolution(ts, initial_state); CHKERRQ(ierr);
 
 
     // Set up time-stepping options
     double timestep = 1e-6;
-    ierr = TSSetTimeStep(ts, timestep); 
-    ierr = TSSetMaxTime(ts, end_time);  // Time duration
-    ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); 
+    ierr = TSSetTimeStep(ts, timestep); CHKERRQ(ierr);
+    ierr = TSSetMaxTime(ts, end_time); CHKERRQ(ierr); // Time duration
+    ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); CHKERRQ(ierr);
 
     // Integrate the ODE system
-    ierr = TSSetType(ts, TSROSW); 
-
+    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+    ierr= TSRosWSetType(ts, "ra34pw2"); CHKERRQ(ierr);
+ 
     // Create a TSAdapt object for adaptive time-stepping
     TSAdapt adapt;
-    ierr = TSGetAdapt(ts, &adapt); 
-    ierr = TSAdaptSetType(adapt, TSADAPTGLEE);  // Use a basic adaptive controller
+    ierr = TSGetAdapt(ts, &adapt); CHKERRQ(ierr);
+    ierr = TSAdaptSetType(adapt, TSADAPTGLEE); CHKERRQ(ierr); // Use a basic adaptive controller
 
     double tol = 1e-5; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
     // Set adaptive time-stepping options (e.g., tolerances)
-    ierr = TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL); 
+    ierr = TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL); CHKERRQ(ierr);
 
 
     //Compute jacobian
@@ -181,7 +182,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     nonZero[Nodes]=Nodes+1;
     for (int i = 1; i<Nodes; i++)nonZero[i]=3;
 //std::cout<<"Nodes = "<<Nodes<<"\n";
-    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,Nodes+1,Nodes+1,3,nonZero,&J); 
+    ierr = MatCreateSeqAIJ(PETSC_COMM_WORLD,Nodes+1,Nodes+1,3,nonZero,&J); CHKERRQ(ierr);
     for (int i = 0; i<(Nodes+1);i++){
         //std::cout<<"Loop i = "<<i<<"\n";
 
@@ -205,9 +206,9 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
         }
     }
 
-    ierr=MatAssemblyBegin(J,MAT_FINAL_ASSEMBLY);
-    CHKERRQ(ierr);
-    CHKERRQ(MatAssemblyEnd(J,MAT_FINAL_ASSEMBLY));
+    ierr=MatAssemblyBegin(J,MAT_FINAL_ASSEMBLY);CHKERRQ(ierr);
+    
+    CHKERRQ(MatAssemblyEnd(J,MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
     std::cout<< "Initialised Jacobian matrix in NUmerical model\n";
 
 
@@ -216,12 +217,12 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     PetscReal shift = 1.0e-6;
 
     // Set the Jacobian matrix and function
-    CHKERRQ(TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL)); 
+    ierr=TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL); CHKERRQ(ierr);
 
 
     std::cout<<"Start solving \n\n";
 
-    CHKERRQ(TSSolve(ts, initial_state)); 
+    ierr=TSSolve(ts, initial_state);CHKERRQ(ierr); 
 
     // Process or save the solution as needed
 
@@ -259,13 +260,14 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
     // Extract the array of state values
     PetscFunctionBeginUser;
+    PetscErrorCode ierr;
     PetscScalar *u, *udot;
-    VecGetArray(U, &u);
-    VecGetArray(U_t, &udot);
+    VecGetArray(U, &u);CHKERRQ(ierr);
+    VecGetArray(U_t, &udot);CHKERRQ(ierr);
 
     // Number of ODEs (size of the state vector)
     int N;
-    VecGetSize(U, &N);
+    VecGetSize(U, &N);CHKERRQ(ierr);
 
     std::valarray<double> X = std::valarray<double>(0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
@@ -280,18 +282,22 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
     //std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
     Vec dxdt;
-    VecDuplicate(U_t, &dxdt);
+    ierr=VecDuplicate(U_t, &dxdt);CHKERRQ(ierr);
 
     for (PetscInt i = 0; i < N; i++) {
         u[i]=X[i];
         udot[i] = dXdt[i];
-        VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);
+        ierr=VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);CHKERRQ(ierr);
     }
+    std::cout<<"calling observer at t="<<t<<"\n";
     myObserver(X,t);
     // Restore the array
-    VecRestoreArray(U, &u);
-    VecAYPX( dxdt,-1,U_t);
-    //std::cout<<"Updated dydt \n";
+    VecRestoreArray(U, &u);CHKERRQ(ierr);
+    VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
+std::cout<<"Updating dydt \n";
+    ierr=VecAYPX( dxdt,-1,U_t);CHKERRQ(ierr);
+    
+    std::cout<<"Updated dydt \n";
     PetscFunctionReturn(0);
 }
 
@@ -300,15 +306,16 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
 PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a, Mat A, Mat B, void *ctx) {
     // Extract the array of state values
     PetscFunctionBeginUser;
+    PetscErrorCode ierr;
     PetscScalar *u, *udot;
-    VecGetArray(U, &u);
-    VecGetArray(U_t, &udot);
+    ierr=VecGetArray(U, &u); CHKERRQ(ierr);
+    ierr=VecGetArray(U_t, &udot);CHKERRQ(ierr);
 
     double shift = 1e-8;
 
     // Number of ODEs (size of the state vector)
     int N;
-    VecGetSize(U, &N);
+    ierr=VecGetSize(U, &N);CHKERRQ(ierr);
 //std::cout<<"Vectors are length"<<N<<"\n";
 
 
@@ -380,7 +387,7 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
 //std::cout<<"JAcobian in J\n";
 
 int Mmat,Nmat;
-MatGetSize(A,&Mmat, &Nmat);
+ierr=MatGetSize(A,&Mmat, &Nmat);CHKERRQ(ierr);
 int Nodes = Nmat;
 
 //std::cout<<"matrix size is "<<Mmat<<" by "<<Nmat<<"\n";
@@ -390,29 +397,34 @@ int Nodes = Nmat;
 
         if(i==0){
             for(int j=0;j<2;j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                ierr=MatSetValues(B,1,&i,1,&j,&J[i][j],INSERT_VALUES);CHKERRQ(ierr);
                 //std::cout<<"Loop j = "<<j<<"\n";
             }
         }
         else if(i==Nmat-1){
             for(int j=0;j<(Nmat-1);j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                ierr=MatSetValues(B,1,&i,1,&j,&J[i][j],INSERT_VALUES);CHKERRQ(ierr);
                 //std::cout<<"Loop j = "<<j<<"\n";   
             }     
         }
         else{
             for(int j=i-1;j<(i+2);j++){
-                MatSetValues(A,1,&i,1,&j,&J[i][j],INSERT_VALUES);
+                ierr=MatSetValues(B,1,&i,1,&j,&J[i][j],INSERT_VALUES);CHKERRQ(ierr);
                 //std::cout<<"ELSE Loop j = "<<j<<" i = "<<i<<" \n";
             }
         }
     }
 
-
+ierr=(MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
+ierr=(MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
+   if (A != B) {
+ierr=(MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
+ierr=(MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
+  }
     std::cout<<"Done Jacobian \n";
     
-        VecRestoreArray(U, &u);
-        VecRestoreArray(U_t, &udot);
+        ierr=VecRestoreArray(U, &u);CHKERRQ(ierr);
+        ierr=VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
 
     std::cout<<"Done Jacobian Function \n";
     PetscFunctionReturn(0);
