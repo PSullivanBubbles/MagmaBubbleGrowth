@@ -30,6 +30,7 @@ void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double
 void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
 PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx);  
+PetscErrorCode ODEFunctionRHS(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx);  
 PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal shift, Mat A, Mat B, void *ctx);
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
@@ -138,6 +139,8 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     // Set the ODE function
     ierr = TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL); 
+//ierr = TSSetRHSFunction(ts, PETSC_NULL, ODEFunctionRHS, PETSC_NULL); 
+
 
     // Set initial time and state vector
     Vec initial_state;
@@ -157,20 +160,22 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); CHKERRQ(ierr);
 
     // Integrate the ODE system
-    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
-    ierr= TSRosWSetType(ts, "ra34pw2"); CHKERRQ(ierr);
+    //ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+    //ierr= TSRosWSetType(ts, "ra34pw2"); CHKERRQ(ierr);
  
+    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+
     // Create a TSAdapt object for adaptive time-stepping
     TSAdapt adapt;
     ierr = TSGetAdapt(ts, &adapt); CHKERRQ(ierr);
     ierr = TSAdaptSetType(adapt, TSADAPTGLEE); CHKERRQ(ierr); // Use a basic adaptive controller
 
-    double tol = 1e-5; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
+    double tol = 1e-6; // 1e-5 is approx thershold for speed/accuracy tradeoff for rosenbrock methods
     // Set adaptive time-stepping options (e.g., tolerances)
     ierr = TSSetTolerances(ts, tol, PETSC_NULL, tol, PETSC_NULL); CHKERRQ(ierr);
 
 
-    //Compute jacobian
+   //Compute jacobian
 
     double one = 1.0;
     double zero = 0.0;
@@ -227,7 +232,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Process or save the solution as needed
 
     // Clean up
-    ierr = MatDestroy(&J);
+  //  ierr = MatDestroy(&J);
      
     ierr = VecDestroy(&initial_state);
      
@@ -295,12 +300,58 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
     VecRestoreArray(U, &u);CHKERRQ(ierr);
     VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
 std::cout<<"Updating dydt \n";
-    ierr=VecAYPX( dxdt,-1,U_t);CHKERRQ(ierr);
+
+    r=U_t;
+    ierr=VecAXPY(r,-1, dxdt);CHKERRQ(ierr);
     
     std::cout<<"Updated dydt \n";
     PetscFunctionReturn(0);
 }
 
+// Function to calculate the derivatives of the ODE system
+PetscErrorCode ODEFunctionRHS(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
+    // Extract the array of state values
+    PetscFunctionBeginUser;
+    PetscErrorCode ierr;
+    PetscScalar *u, *udot;
+    VecGetArray(U, &u);CHKERRQ(ierr);
+    VecGetArray(U_t, &udot);CHKERRQ(ierr);
+
+    // Number of ODEs (size of the state vector)
+    int N;
+    VecGetSize(U, &N);CHKERRQ(ierr);
+
+    std::valarray<double> X = std::valarray<double>(0.0,N);
+    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
+
+    for (PetscInt i = 0; i < N; i++) {
+        X[i]=u[i];
+        dXdt[i] = udot[i];
+    }
+
+    std::cout<<"Calling MyOdeFun \n";
+    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
+    //std::cout<<"Updated dY/dt \n\n";
+    // Define your ODE system and calculate derivatives
+    Vec dxdt;
+    ierr=VecDuplicate(U_t, &dxdt);CHKERRQ(ierr);
+
+    for (PetscInt i = 0; i < N; i++) {
+        u[i]=X[i];
+        udot[i] = dXdt[i];
+        ierr=VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);CHKERRQ(ierr);
+    }
+    std::cout<<"calling observer at t="<<t<<"\n";
+    myObserver(X,t);
+    // Restore the array
+    VecRestoreArray(U, &u);CHKERRQ(ierr);
+    VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
+//std::cout<<"Updating dydt \n";
+    //ierr=VecAYPX( dxdt,-1,U_t);CHKERRQ(ierr);
+    
+    //std::cout<<"Updated dydt \n";
+    PetscFunctionReturn(0);
+}
 
 
 PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a, Mat A, Mat B, void *ctx) {
@@ -311,7 +362,7 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
     ierr=VecGetArray(U, &u); CHKERRQ(ierr);
     ierr=VecGetArray(U_t, &udot);CHKERRQ(ierr);
 
-    double shift = 1e-8;
+    double shift = 1e-5;
 
     // Number of ODEs (size of the state vector)
     int N;
@@ -376,6 +427,7 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
         J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
     }
 
+    shift=Y[N-1]*1e-3;
     X=Y;
     X[N-1]=Y[N-1]+shift;
 //std::cout<<"Jacobian calc 5 at t="<<t<<"\n";
@@ -383,7 +435,7 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
 
 
     for (int i =0; i<N; i++)
-    J[i][N]=(dXdt[i]-Y[i])/shift;
+        J[i][N-1]=(dXdt[i]-Y[i])/shift;
 //std::cout<<"JAcobian in J\n";
 
 int Mmat,Nmat;

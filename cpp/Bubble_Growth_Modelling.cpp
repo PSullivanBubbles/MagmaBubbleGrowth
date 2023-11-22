@@ -90,10 +90,10 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     print(' ')
     print('%%%Warnings or errors from Numerical Model%%%)
     print(' ')
-    */
+    */   
     return;
 } 
-     
+        
 //#%==========================================================================
 //#%Function to explore solubility conditions of the model inputs. The user
 //#%can use the visuals of this function to determine the nucleation time
@@ -294,7 +294,7 @@ int main(){
     //#% https://www.mathworks.com/help/simulink/gui/relative-tolerance.html
     //#%For additional information
     std::valarray<double> Numerical_Tolerance = {1e-5, 1e-5};
- 
+   
   
     double t_nuc = 0;     
     double t_f = 3000; 
