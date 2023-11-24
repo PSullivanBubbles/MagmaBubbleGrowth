@@ -8,7 +8,7 @@
 #include "getFunctions_v2.h"
 
 #include "petscts.h"
-#include "petscerror.h"
+//#include "petscerror.h"
 
 
 std::vector<double> outputTime={};
@@ -160,10 +160,11 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); CHKERRQ(ierr);
 
     // Integrate the ODE system
-    //ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+    
+    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
     //ierr= TSRosWSetType(ts, "ra34pw2"); CHKERRQ(ierr);
  
-    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+ //   ierr = TSSetType(ts, TSRK3); CHKERRQ(ierr);
 
     // Create a TSAdapt object for adaptive time-stepping
     TSAdapt adapt;
@@ -262,13 +263,14 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 //#%==========================================================================
 
 // Function to calculate the derivatives of the ODE system
-PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
+PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec F, void *ctx) {
     // Extract the array of state values
     PetscFunctionBeginUser;
     PetscErrorCode ierr;
-    PetscScalar *u, *udot;
+    PetscScalar *u, *udot, *f ;
     VecGetArray(U, &u);CHKERRQ(ierr);
     VecGetArray(U_t, &udot);CHKERRQ(ierr);
+    VecGetArray(F, &f);CHKERRQ(ierr);
 
     // Number of ODEs (size of the state vector)
     int N;
@@ -277,34 +279,30 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx)
     std::valarray<double> X = std::valarray<double>(0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
+    std::cout<<"at t = "<<t<<"\t R = "<<u[N-1]<<"\t V = "<<udot[N-1]<<"\n";
+
     for (PetscInt i = 0; i < N; i++) {
         X[i]=u[i];
-        dXdt[i] = udot[i];
+        std::cout<<"Concentration is "<<X[i]<<"\n";
     }
 
-    std::cout<<"Calling MyOdeFun \n";
+    //std::cout<<"Calling MyOdeFun \n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-    //std::cout<<"Updated dY/dt \n\n";
+    std::cout<<"Updated dY/dt \n\n";
     // Define your ODE system and calculate derivatives
-    Vec dxdt;
-    ierr=VecDuplicate(U_t, &dxdt);CHKERRQ(ierr);
 
     for (PetscInt i = 0; i < N; i++) {
-        u[i]=X[i];
-        udot[i] = dXdt[i];
-        ierr=VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);CHKERRQ(ierr);
+        f[i] = udot[i] - dXdt[i];
+        std::cout<<f[i]<<"  is f \t";
+        std::cout<<udot[i]<<"  is udot \t";
+        std::cout<<dXdt[i]<<"  is dxdt \n";
     }
-    std::cout<<"calling observer at t="<<t<<"\n";
-    myObserver(X,t);
+
     // Restore the array
     VecRestoreArray(U, &u);CHKERRQ(ierr);
     VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
-std::cout<<"Updating dydt \n";
-
-    r=U_t;
-    ierr=VecAXPY(r,-1, dxdt);CHKERRQ(ierr);
-    
-    std::cout<<"Updated dydt \n";
+    VecRestoreArray(F, &f);CHKERRQ(ierr);
+    //std::cout<<"Updated dydt \n";
     PetscFunctionReturn(0);
 }
 
@@ -376,6 +374,7 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
     for (PetscInt i = 0; i < N; i++) {
         X[i]=u[i];
         dXdt[i] = udot[i];
+        //std::cout<<dXdt[i]<<"\n";
     }
     
     std::valarray<double> Y = X;
@@ -384,10 +383,9 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
     MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =0; i<N-1; i++){
+        
         if(i%3==0)
             X[i]=X[i]+shift;
-
-            //std::cout<<X[i]<<"\n";
     }
 //std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
@@ -399,8 +397,8 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
 
     for (int i =3; i<N-1; i=i+3){
         J[i][i]= (dXdt[i]-dYdt[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J[i][i-1]= (dXdt[i-1]-dYdt[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-dYdt[i+1])/shift;
     }
     X=Y;
     for (int i =0; i<N-1; i++){
@@ -410,9 +408,9 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
 MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =1; i<N-1; i=i+3){
-        J[i][i]= (dXdt[i]-Y[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J[i][i]= (dXdt[i]-dYdt[i])/shift;
+        J[i][i-1]= (dXdt[i-1]-dYdt[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-dYdt[i+1])/shift;
     }
     X=Y;
     for (int i =1; i<N-1; i++){
@@ -422,9 +420,9 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
 MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =2; i<N-1; i=i+3){
-        J[i][i]= (dXdt[i]-Y[i])/shift;
-        J[i][i-1]= (dXdt[i-1]-Y[i-1])/shift;
-        J[i][i+1]= (dXdt[i+1]-Y[i+1])/shift;
+        J[i][i]= (dXdt[i]-dYdt[i])/shift;
+        J[i][i-1]= (dXdt[i-1]-dYdt[i-1])/shift;
+        J[i][i+1]= (dXdt[i+1]-dYdt[i+1])/shift;
     }
 
     shift=Y[N-1]*1e-3;
@@ -454,7 +452,7 @@ int Nodes = Nmat;
             }
         }
         else if(i==Nmat-1){
-            for(int j=0;j<(Nmat-1);j++){
+            for(int j=0;j<(Nmat);j++){
                 ierr=MatSetValues(B,1,&i,1,&j,&J[i][j],INSERT_VALUES);CHKERRQ(ierr);
                 //std::cout<<"Loop j = "<<j<<"\n";   
             }     
@@ -467,18 +465,22 @@ int Nodes = Nmat;
         }
     }
 
+A=B;
+
 ierr=(MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
 ierr=(MatAssemblyEnd(B, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
    if (A != B) {
 ierr=(MatAssemblyBegin(A, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
 ierr=(MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
   }
-    std::cout<<"Done Jacobian \n";
-    
+
+        std::cout<<dYdt[N-1]<<" is Udot \n";
         ierr=VecRestoreArray(U, &u);CHKERRQ(ierr);
         ierr=VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
 
-    std::cout<<"Done Jacobian Function \n";
+    std::cout<<"calling observer at t="<<t<<"\n";
+    myObserver(Y,t);
+
     PetscFunctionReturn(0);
 
 

@@ -12,94 +12,10 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     int solFlag = 1;
     int diffFlag = 1;
 
-    double T_0 = T[0];
-    double T_f = T[-1];
-    double P_0 = P[0];
-    double P_f = P[-1];
 
-
-/*#%Switch-cases to get the parameter bounds for the solubility models
-    if (SolModel== 'Liu 2005'):
-        Sol_P_min = 0.1*1e6# %Pa
-        Sol_P_max = 500*1e6# %Pa
-        Sol_T_min = 700 + 273.15# %Kelvin
-        Sol_T_max = 1200 + 273.15# %kelvin
-        
-    elif (SolModel=='Ryan 2015'):
-        Sol_P_min = 0.1*1e6# %Pa
-        Sol_P_max = 0.1*1e6# %Pa
-        Sol_T_min = 900 + 273.15# %Kelvin
-        Sol_T_max = 1100 + 273.15# %kelvin
-        
-    else:
-        print('Bounds for solubility model not defined')
-        solFlag = 0# %flag to ignore bound check
-
-
-#%Switch-cases to get the parameter bounds for the diffusion models
-    if( DiffModel=='Zhang 2010 Metaluminous simple'): # %Zhang and Ni (2010) equation 15
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 500 + 273.15#; %Kelvin
-        Diff_T_max = 1200 + 273.15#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 2#; %wt. %
-        
-        
-    elif( DiffModel== 'Zhang 2010 Metaluminous'):# %Zhang and Ni (2010) equations 7a, 13, 14
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 676#; %Kelvin
-        Diff_T_max = 1900#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 8#; %wt. %
-        
-    elif( DiffModel=='Zhang 2010 Peralkaline'):# %Zhang and Ni (2010) equation 7a, 13, 16
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 676#; %Kelvin
-        Diff_T_max = 1900#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 8#; %wt. %
-        
-    else:
-        print('Bounds for diffusion model not defined')
-        diffFlag = 0# %flag to ignore bound check
-
-    if (solFlag ==1):
-    #%Check if conditions are appropriate for solubility model, if outside of
-    #%range raise a warning
-        if (P_0 < Sol_P_min): print('Initial pressure below solubility model range')
-        if (P_f > Sol_P_max): print('Final pressure above solubility model range')
-        if (T_0 < Sol_T_min): print('Initial temperature below solubility model range')
-        if (T_f > Sol_T_max): print('Final temperature above solubility model range')
-
-
-    if (diffFlag==1):
-        #%Check if conditions are appropriate for the diffusion model, if outside of
-        #%range raise a warning
-        if (P_0 < Diff_P_min): print('Initial pressure below diffusion model range')
-        if (P_f > Diff_P_max): print('Final pressure above diffusion model range')
-        if (T_0 < Diff_T_min): print('Initial temperature below diffusion model range')
-        if (T_f > Diff_T_max): print('Final temperature above diffusion model range')
-        H2O = [gFP.SolFun(T_f,P_0,SolModel),gFP.SolFun(T_f,P_f,SolModel),gFP.SolFun(T_0,P_0), gFP.SolFun(T_0,P_f,SolModel), H2Ot_0]
-        H2O_min = min(H2O)
-        H2O_max = max(H2O)
-        if (H2O_min < Diff_H2O_min): print('H2O will potentially be below diffusion model range')
-        if (H2O_max > Diff_H2O_max): print('H2O will potentially be above diffusion model range')
-    print(' ')
-    print('%%%Warnings or errors from Numerical Model%%%)
-    print(' ')
-    */   
     return;
 } 
-        
-//#%==========================================================================
-//#%Function to explore solubility conditions of the model inputs. The user
-//#%can use the visuals of this function to determine the nucleation time
-//#%delay for a given initial water or the solubility of the initial
-//#%conditions..etc.
-//#%==========================================================================
+
     
 void SolubilityExplore(std::string SolModel, std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P, double R_0, double SurfTens,double H2Ot_0){
 /*
@@ -222,16 +138,14 @@ void plotting(std::valarray<double> t,std::valarray<double> R,std::valarray<doub
 //#%Choose which operation: Solubility explore or Model run
      
 int main(){
-
-    std::string Operation = "Run Model";
-
   
+    std::string Operation = "Run Model";
     //"""
     //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //%Set the model properties
     //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //"""
-
+       
     //#%Melt composition
     double wt_dry = 0.01;// #H2O wt. % that defines "dry"
     //#[SiO2 TiO2 Al2O3 FeO(T) MnO MgO CaO Na2O K2O P2O5 H2O F2O-1]
@@ -274,11 +188,11 @@ int main(){
     //#EOSModemalloc_consolidate(): invalid chunk sizel = 'Ideal Gas Law'
     //#%================================!!!
     //#%================================!!!  
-        
+                 
     //#Constants used for calculations
     double SurfTens = 0.22; //#Value for surface tension (N/m)
     double melt_Rho = 2350; //#Melt density in kg/m^3
-      
+       
     //#Spatial parameters
     double Nb = 1e11; //#Bubble number density (number per m^3)
     double Phi_0 = 1*1e-6; //#Initial gas volume fraction (Phi)
@@ -287,21 +201,21 @@ int main(){
    
     //#Finite difference parameters
     int Nodes = 10; //#Number of nodes in spatial discretization
-    
+     
     //#%Numerical tolerance:         
     //#%[Absolute tolerance, relative tolerance], see:
     //#% https://www.mathworks.com/help/simbio/ref/absolutetolerance.html
     //#% https://www.mathworks.com/help/simulink/gui/relative-tolerance.html
     //#%For additional information
     std::valarray<double> Numerical_Tolerance = {1e-5, 1e-5};
-   
-  
+     
+    
     double t_nuc = 0;     
     double t_f = 3000; 
  
     std::valarray<double> T_0 = {1100+ 273.15};
     std::valarray<double> t_T = {0};
- 
+  
     std::valarray<double> P_0 = {1*1e5};
     std::valarray<double> t_P = {0};
        
@@ -352,7 +266,7 @@ int main(){
 
     }
     
-
+  
     return 0;
 }
 
