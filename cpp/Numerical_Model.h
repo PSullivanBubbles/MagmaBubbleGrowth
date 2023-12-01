@@ -6,13 +6,14 @@
 #include <string>
 
 #include "getFunctions_v2.h"
-
+ 
 #include "petscts.h"
 //#include "petscerror.h"
 
 
 std::vector<double> outputTime={};
 std::vector<std::valarray<double> > outputY={};
+double Global_t = 0;
 
 std::valarray<double> xG,xBG,T_0G,t_TG,P_0G,t_PG,CompositionG;
 double m_0G,melt_RhoG,H2Ot_0G,R_0G,WG,SurfTensG,NbG;
@@ -80,7 +81,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     double L = R_0*(pow(phi_0,(-1.0/3.0)) - 1); 
 
 //#Set the numerical duration bounds (from nucleation to end)
-    double t_f = 3000;
+    double t_f = 30;
     //tspan = (t_nuc, t_f)
 
 //# Get the P and T at the defined t_0 using the P-T-t pathway
@@ -138,9 +139,8 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     ierr = TSCreate(PETSC_COMM_WORLD, &ts); 
 
     // Set the ODE function
-    ierr = TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL); 
-//ierr = TSSetRHSFunction(ts, PETSC_NULL, ODEFunctionRHS, PETSC_NULL); 
-
+    //ierr = TSSetIFunction(ts, PETSC_NULL, ODEFunction, PETSC_NULL); 
+ierr = TSSetRHSFunction(ts, PETSC_NULL, ODEFunctionRHS, PETSC_NULL); 
 
     // Set initial time and state vector
     Vec initial_state;
@@ -154,14 +154,15 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
 
     // Set up time-stepping options
-    double timestep = 1e-6;
+    double timestep = 1e-4;
     ierr = TSSetTimeStep(ts, timestep); CHKERRQ(ierr);
     ierr = TSSetMaxTime(ts, end_time); CHKERRQ(ierr); // Time duration
     ierr = TSSetExactFinalTime(ts, TS_EXACTFINALTIME_MATCHSTEP); CHKERRQ(ierr);
 
     // Integrate the ODE system
     
-    ierr = TSSetType(ts, TSROSW); CHKERRQ(ierr);
+    ierr = TSSetType(ts, TSRK); CHKERRQ(ierr);
+    ierr = TSRKSetType(ts, TSRK5BS);
     //ierr= TSRosWSetType(ts, "ra34pw2"); CHKERRQ(ierr);
  
  //   ierr = TSSetType(ts, TSRK3); CHKERRQ(ierr);
@@ -223,7 +224,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     PetscReal shift = 1.0e-6;
 
     // Set the Jacobian matrix and function
-    ierr=TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL); CHKERRQ(ierr);
+    //ierr=TSSetIJacobian(ts, J, J, JacobianFunction, PETSC_NULL); CHKERRQ(ierr);
 
 
     std::cout<<"Start solving \n\n";
@@ -233,7 +234,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     // Process or save the solution as needed
 
     // Clean up
-  //  ierr = MatDestroy(&J);
+    ierr = MatDestroy(&J);
      
     ierr = VecDestroy(&initial_state);
      
@@ -272,6 +273,12 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec F, void *ctx)
     VecGetArray(U_t, &udot);CHKERRQ(ierr);
     VecGetArray(F, &f);CHKERRQ(ierr);
 
+
+    if(1){
+        std::cout<<"time is "<<t<<"\n";
+        Global_t=t;
+    }
+
     // Number of ODEs (size of the state vector)
     int N;
     VecGetSize(U, &N);CHKERRQ(ierr);
@@ -279,7 +286,7 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec F, void *ctx)
     std::valarray<double> X = std::valarray<double>(0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
-    std::cout<<"at t = "<<t<<"\t R = "<<u[N-1]<<"\t V = "<<udot[N-1]<<"\n";
+    //std::cout<<"at t = "<<t<<"\t R = "<<u[N-1]<<"\t V = "<<udot[N-1]<<"\n";
 
     for (PetscInt i = 0; i < N; i++) {
         X[i]=u[i];
@@ -288,14 +295,14 @@ PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec F, void *ctx)
 
     //std::cout<<"Calling MyOdeFun \n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-    std::cout<<"Updated dY/dt \n\n";
+    //std::cout<<"Updated dY/dt \n";
     // Define your ODE system and calculate derivatives
 
     for (PetscInt i = 0; i < N; i++) {
         f[i] = udot[i] - dXdt[i];
-        std::cout<<f[i]<<"  is f \t";
-        std::cout<<udot[i]<<"  is udot \t";
-        std::cout<<dXdt[i]<<"  is dxdt \n";
+        //std::cout<<f[i]<<"  is f \t";
+        //std::cout<<udot[i]<<"  is udot \t";
+        //std::cout<<dXdt[i]<<"  is dxdt \n";
     }
 
     // Restore the array
@@ -322,30 +329,27 @@ PetscErrorCode ODEFunctionRHS(TS ts, PetscReal t, Vec U, Vec U_t, void *ctx) {
     std::valarray<double> X = std::valarray<double>(0.0,N);
     std::valarray<double> dXdt = std::valarray<double>(0.0,N);
 
+
+
     for (PetscInt i = 0; i < N; i++) {
         X[i]=u[i];
         dXdt[i] = udot[i];
     }
 
+    std::cout<<"calling observer at t="<<t<<"\n";
+    myObserver(X,t);
+
     std::cout<<"Calling MyOdeFun \n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-    //std::cout<<"Updated dY/dt \n\n";
-    // Define your ODE system and calculate derivatives
-    Vec dxdt;
-    ierr=VecDuplicate(U_t, &dxdt);CHKERRQ(ierr);
 
     for (PetscInt i = 0; i < N; i++) {
         u[i]=X[i];
         udot[i] = dXdt[i];
-        ierr=VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);CHKERRQ(ierr);
     }
-    std::cout<<"calling observer at t="<<t<<"\n";
-    myObserver(X,t);
+
     // Restore the array
     VecRestoreArray(U, &u);CHKERRQ(ierr);
     VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
-//std::cout<<"Updating dydt \n";
-    //ierr=VecAYPX( dxdt,-1,U_t);CHKERRQ(ierr);
     
     //std::cout<<"Updated dydt \n";
     PetscFunctionReturn(0);
@@ -360,7 +364,7 @@ PetscErrorCode JacobianFunction(TS ts, PetscReal t, Vec U, Vec U_t, PetscReal a,
     ierr=VecGetArray(U, &u); CHKERRQ(ierr);
     ierr=VecGetArray(U_t, &udot);CHKERRQ(ierr);
 
-    double shift = 1e-5;
+    double shift = 1e-4;
 
     // Number of ODEs (size of the state vector)
     int N;
@@ -478,7 +482,7 @@ ierr=(MatAssemblyEnd(A, MAT_FINAL_ASSEMBLY));CHKERRQ(ierr);
         ierr=VecRestoreArray(U, &u);CHKERRQ(ierr);
         ierr=VecRestoreArray(U_t, &udot);CHKERRQ(ierr);
 
-    std::cout<<"calling observer at t="<<t<<"\n";
+    std::cout<<"calling observer in Jacobian at t="<<t<<"\n";
     myObserver(Y,t);
 
     PetscFunctionReturn(0);
@@ -532,7 +536,7 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 
 
     double m=m_0+4*PI*melt_Rho*(I1-I2);
-   // std::cout<<"\n\n m is "<<m<<"\n\n";
+    //std::cout<<" m is "<<m<<"\n";
 
 //#%Compute pressure of the gas  in the bubble from EOS
 //#%(section 2.3.2 of main manuscript)
@@ -543,6 +547,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 //#%pressure in the bubble
 //#%(section 2.3.1 of main manuscript)
     double H2Oeq = SolFun(T,pb,SolModel);
+//std::cout<<"Solubility is "<<H2Oeq<<"\n";
+
 
 //#%get diffusion coefficients at boundaries
 //#%Creates a vector where the first value is the boundary condition as
@@ -555,6 +561,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     }
 
     std::valarray<double> DH2Ot = DiffFun(T,P,H2O_BC,W,DiffModel);
+    //for (int i=0; i<DH2Ot.size(); i++)
+    //std::cout<<"DH2Ot is "<<DH2Ot[i]<<"\n";
 
 //#%====Solve water diffusion==== (equation A.4 from manuscript)
 //#%molecular diffusion flux
@@ -565,10 +573,10 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     for (int i =1; i<diffTop.size(); i++){
         diffTop[i]=H2Ot[i-1];
         diffBottom[i]=x[i-1];
+        //std::cout<<diffTop[i]<<"\t"<<diffBottom[i]<<"\n";
     }
 
     std::valarray<double> JH2Ot = -DH2Ot*diff(diffTop)/diff(diffBottom);
-
 
 //#%Gradient of the diffusion flux.
 
@@ -577,30 +585,20 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
         dJdiff[i]=(((pow((pow(x,3)+pow(R,3)-pow(R_0,3)),(4.0/3.0)))/(pow(x,2)))*JH2Ot)[i];
     dJdiff[JH2Ot.size()]=0;
 
+    //for (int i=0; i<JH2Ot.size(); i++)
+    //std::cout<<"dj diff is "<<dJdiff[i]<<"\n";
     std::valarray<double> dJH2Odx = (1.0/(pow(x,2.0)))*diff(dJdiff)/diff(xB);
 
 //#%====solve hydrodynamic equation====
 //#%Compute the viscosity
     std::valarray<double> v = ViscFun(H2Ot,T,Composition,ViscModel);
-//for (int i =0;i<nx;i++)if(1)std::cout<<"viscosity at i = "<<v[i]<<"\n";
-//std::cout<<"R is "<<R<<"\n";
-//std::cout<<"R0 is "<<R_0<<"\n";
+
 //#%Compute integrated viscosity (equation A.5 from manuscript)
     auto I3fun = [v, R, R_0,x](int i){return (v[i]*pow(x[i],2))/(pow((pow(R,3)-pow(R_0,3)+pow(x[i],3)),2));};
-    //double I3=trapz(I3fun,x);
-
     double I3=0;
-
-
-
     for (int i =1; i<x.size(); i++){
         I3+= (I3fun(i)+I3fun(i-1))*((x[i]-x[i-1]))*0.5;
-
- //       std::cout<<"(x[i]-x[i-1]) is  "<<(x[i]-x[i-1])<<" \n";
- //       std::cout<<"(I3fun(i)+I3fun(i-1))is  "<<(I3fun(i)+I3fun(i-1))<<" \n";
     }
- //   if(I3<0)std::cout<<"\n\nI3 NEGATIVE \n\n";
-//std::cout<<"\n\nI3 is  "<<I3<<" \n\n";
 
 //std::cout<<" pb is "<<pb<<"\n";
 //std::cout<<" P is "<<P<<"\n";
@@ -610,17 +608,21 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     double dRdt= ((pb-P-(2*(SurfTens)/R))/(12*pow(R,2)))/I3;
 
 //#%return rhs of ode
+ //std::cout<<"flux \n";
+    
+
     dYdt = std::valarray<double>(dJH2Odx.size()+1);
     for (int i =0; i< dJH2Odx.size(); i++){
         dYdt[i] = -dJH2Odx[i];
         dXdt[i] = -dJH2Odx[i];
+        //std::cout<<dXdt[i]<<"\n";
     }
     dYdt[dJH2Odx.size()]=dRdt;
     dXdt[dJH2Odx.size()]=dRdt;
 
 
-   // std::cout<<"pb is "<<pb<<"\n"; 
-   // std::cout<<"dR/dt is "<<dRdt<<"\n"; 
+    //std::cout<<"pb is "<<pb<<"\n"; 
+    //std::cout<<"dR/dt is "<<dRdt<<"\n"; 
 
 }
 
@@ -789,7 +791,7 @@ std::valarray<double> logspace(double lower, double upper, int nodes){
 
 //return first difference 
 std::valarray<double> diff(std::valarray<double> input){
-    std::valarray<double> output = std::valarray<double>(input.size()-1);
+    std::valarray<double> output = std::valarray<double>(0.0,input.size()-1);
     for (int i = 0; i<output.size(); i++){
         output[i]=input[i+1] -input[i];
     }

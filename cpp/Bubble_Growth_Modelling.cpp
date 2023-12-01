@@ -6,7 +6,7 @@
 
 #include "Numerical_Model.h"
 #include "petscerror.h"
-
+  
 
 void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_f, std::valarray<double> T, std::valarray<double> P, double H2Ot_0){
     int solFlag = 1;
@@ -145,7 +145,7 @@ int main(){
     //%Set the model properties
     //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //"""
-       
+        
     //#%Melt composition
     double wt_dry = 0.01;// #H2O wt. % that defines "dry"
     //#[SiO2 TiO2 Al2O3 FeO(T) MnO MgO CaO Na2O K2O P2O5 H2O F2O-1]
@@ -164,7 +164,7 @@ int main(){
     //#%Composition = ROGD; %Mourtada-Bonnefoi and Laporte (2004)
     //#%================================!!!
     //#%================================!!!
-    //#%~~~solubility model~~~
+    //#%~~~solubility model~~~  
     std::string SolModel = "Ryan 2015"; //# %Ryan et al. (2015)
     //std::string SolModel = "Liu 2005"; //# %Liu et al. (2005)  
     //#%================================!!!
@@ -188,11 +188,11 @@ int main(){
     //#EOSModemalloc_consolidate(): invalid chunk sizel = 'Ideal Gas Law'
     //#%================================!!!
     //#%================================!!!  
-                 
+                       
     //#Constants used for calculations
     double SurfTens = 0.22; //#Value for surface tension (N/m)
     double melt_Rho = 2350; //#Melt density in kg/m^3
-       
+         
     //#Spatial parameters
     double Nb = 1e11; //#Bubble number density (number per m^3)
     double Phi_0 = 1*1e-6; //#Initial gas volume fraction (Phi)
@@ -200,16 +200,16 @@ int main(){
     double R_0 = 3e-5; //#R_0 (m) set independently
    
     //#Finite difference parameters
-    int Nodes = 10; //#Number of nodes in spatial discretization
-     
+    int Nodes = 500; //#Number of nodes in spatial discretization
+                 
     //#%Numerical tolerance:         
     //#%[Absolute tolerance, relative tolerance], see:
     //#% https://www.mathworks.com/help/simbio/ref/absolutetolerance.html
     //#% https://www.mathworks.com/help/simulink/gui/relative-tolerance.html
     //#%For additional information
     std::valarray<double> Numerical_Tolerance = {1e-5, 1e-5};
-     
-    
+         
+        
     double t_nuc = 0;     
     double t_f = 3000; 
  
@@ -219,8 +219,8 @@ int main(){
     std::valarray<double> P_0 = {1*1e5};
     std::valarray<double> t_P = {0};
        
-    double H2Ot_0 = 1.5;  
-           
+    double H2Ot_0 = 0.1;  
+             
     //#%%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
     //#%Run the check function, solubility explore or numerical model
     //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
@@ -236,7 +236,7 @@ int main(){
         SolubilityExplore(SolModel, T_0,t_T,P_0,t_P, R_0, SurfTens, H2Ot_0);
                  
     else if (Operation=="Run Model"){
-                              
+                                   
         //#%Run the numerical model with the set parameters
         //#tic
         std::valarray<double> t;
@@ -266,7 +266,7 @@ int main(){
 
     }
     
-  
+   
     return 0;
 }
 

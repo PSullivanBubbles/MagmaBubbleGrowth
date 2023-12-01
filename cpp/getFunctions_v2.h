@@ -66,7 +66,7 @@ double SolFun(double T,double P, std::string SolModel){
 
 std::valarray<double> DiffFun(double T,double P,std::valarray<double> H2Ot, double W, std::string DiffModel){
 
-    std::valarray<double> D;
+    std::valarray<double> D = std::valarray<double>(0.0,H2Ot.size());
 
     if (DiffModel== "Zhang 2010 Metaluminous simple"){
         //%Diffusivity function for metaluminous rhyolite from Zhang and Ni (2010)
