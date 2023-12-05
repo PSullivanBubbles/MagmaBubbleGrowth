@@ -150,7 +150,7 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     std::cout<<"Start solving \n\n";
     double initial_time = 0;
     double end_time = t_f;
-    double dt = 1e-3;
+    double dt = 1e-4;
 
 
     typedef boost::numeric::odeint::rosenbrock4<double> stepper_type;
@@ -159,8 +159,9 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     std::vector<vector_type> x_vec;
     std::vector<double> times;
+    double error = 1e-4;
 
-    size_t steps = boost::numeric::odeint::integrate_adaptive(boost::numeric::odeint::make_dense_output<stepper_type>(1e-5,1e-5),make_pair(solveSys,JacobianFunction), Y_0, 0.0,t_f, dt, push_back_state_and_time( x_vec , times ) );
+    size_t steps = boost::numeric::odeint::integrate_adaptive(boost::numeric::odeint::rosenbrock4_controller<stepper_type>(error,error),make_pair(solveSys,JacobianFunction), Y_0, 0.0,t_f, dt, push_back_state_and_time( x_vec , times ) );
 
 
 
@@ -183,15 +184,12 @@ for( size_t i=0; i<=steps; i++ )
 void JacobianFunction(const vector_type &u, matrix_type &K, const double &t, vector_type &udot) {
     // Extract the array of state values
 //std::cout<<"Start Jacobian \n";
-    double shift = 1e-6;
+    double shift = 1e-5;
     int N = u.size();
 
 //std::cout<<"Vectors are length"<<N<<"\n";
-    matrix_type J = matrix_type(N,N);
-    for (int i =0 ;i< N; i ++){
-        for (int j =0; j< N; j ++)
-            J(i,j)=0;
-    }
+    matrix_type J = K;
+    
 
     vector_type X = u;
     vector_type Y = u;
