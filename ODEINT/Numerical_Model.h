@@ -13,6 +13,24 @@ typedef std::valarray<double> state_type;
 typedef boost::numeric::ublas::vector< double > vector_type;
 typedef boost::numeric::ublas::matrix< double > matrix_type;
 
+
+struct push_back_state_and_time
+{
+    std::vector< vector_type >& m_states;
+    std::vector< double >& m_times;
+
+    push_back_state_and_time( std::vector< vector_type > &states , std::vector< double > &times )
+    : m_states( states ) , m_times( times ) { }
+
+    void operator()( const vector_type &x , double t )
+    {
+        m_states.push_back( x );
+        m_times.push_back( t );
+
+        std::cout<<"t = "<<t<<"\t r = "<<x[x.size()-1]<<"\n";
+    }
+};
+
 std::vector<double> outputTime={};
 std::vector<vector_type> outputY={};
 
@@ -29,10 +47,10 @@ double Porosity(double Nb,double R);
 double Mass_SingleOxygen(std::valarray<double> Composition);
 void Outputs(double Nodes,double R_0,double L,std::valarray<std::valarray<double>> Y,std::valarray<double> t,double Nb,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P, 
             std::valarray<double> &R, std::valarray<double> &phi, std::valarray<double> &P, std::valarray<double> &T, std::valarray<std::valarray<double>> &x_out ,std::valarray<std::valarray<double>> &H2Ot_all);
-void MYodeFun(const std::valarray<double>  &Y, std::valarray<double>  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
+void MYodeFun(const vector_type  &Y, vector_type  &dYdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb);
 void myObserver(const std::valarray<double>  &x, const double t);
 //void ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx);  
-void JacobianFunction(const vector_type &x, matrix_type J, const double &t, vector_type &dxdt);
+void JacobianFunction(const vector_type &x, matrix_type &J, const double &t, vector_type &dxdt);
 
 void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0_in,double melt_Rho_in,std::valarray<double> T_0_in,std::valarray<double> t_T_in,std::valarray<double> P_0_in,std::valarray<double> t_P_in,double H2Ot_0_in,double R_0_in,double W_in,double SurfTens_in,std::string SolModel_in,std::string DiffModel_in,std::string ViscModel_in,std::string EOSModel_in,std::valarray<double> Composition_in,double Nb_in){
     xG=x_in;
@@ -60,22 +78,7 @@ void setValues(std::valarray<double> x_in,std::valarray<double> xB_in,double m_0
 
 void solveSys( const vector_type &Y, vector_type &dYdt, const double t)
 {
-    int N = Y.size();
-    std::valarray<double> X = std::valarray<double>(0.0,N);
-    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
-
-    for(int i =0; i<N;i++){
-        X[i]=Y[i];
-        dXdt[i]=dYdt[i];
-    }
-
-    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-
-    for(int i =0; i<N;i++){
-        dYdt[i]=dXdt[i];
-    }
-
-
+    MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 }
 
 
@@ -147,23 +150,18 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
     std::cout<<"Start solving \n\n";
     double initial_time = 0;
     double end_time = t_f;
-    double dt = 1e-6;
-
-   // typedef boost::numeric::odeint::runge_kutta_cash_karp54<vector_type> rkck54;
-   // typedef boost::numeric::odeint::controlled_runge_kutta< rkck54 > ctrl_rkck54;
-
-   // typedef boost::numeric::odeint::rosenbrock4<vector_type> rose;
-
-//typedef boost::numeric::odeint::rosenbrock4<vector_type> stepper_type;
-////typedef boost::numeric::odeint::rosenbrock4_controller< stepper_type > controlled_stepper_type;
-//typedef boost::numeric::odeint::rosenbrock4_dense_output< controlled_stepper_type > dense_output_type;
+    double dt = 1e-3;
 
 
-    //boost::numeric::odeint::integrate_const(dense_output_type(1e-5,1e-5),make_pair(solveSys,JacobianFunction), Y_0, 0.0,t_f, dt, myObserver);
+    typedef boost::numeric::odeint::rosenbrock4<double> stepper_type;
+    typedef boost::numeric::odeint::rosenbrock4_controller< stepper_type > controlled_stepper_type;
+    typedef boost::numeric::odeint::rosenbrock4_dense_output< controlled_stepper_type > dense_output_type;
 
- boost::numeric::odeint::integrate(solveSys,Y_0,initial_time,t_f,dt);
+    std::vector<vector_type> x_vec;
+    std::vector<double> times;
 
-   // boost::numeric::odeint::integrate(solveSys, Y_0, 0.0,t_f, dt, myObserver,);
+    size_t steps = boost::numeric::odeint::integrate_adaptive(boost::numeric::odeint::make_dense_output<stepper_type>(1e-5,1e-5),make_pair(solveSys,JacobianFunction), Y_0, 0.0,t_f, dt, push_back_state_and_time( x_vec , times ) );
+
 
 
     // Process or save the solution as needed
@@ -173,95 +171,42 @@ std::valarray<double> &t, std::valarray<double> &R, std::valarray<double> &phi, 
 
     t = std::valarray<double>(outputTime.size());
     std::valarray<std::valarray<double>> Y = std::valarray<std::valarray<double>>(std::valarray<double>(Y_0.size()),t.size());
-    for (int i =0; i<outputTime.size(); i++){
-        t[i]=outputTime[i];
-        for (int j =0; j<Y_0.size(); j++){
-            Y[i][j]=outputY[i][j];
-        }
-    }
+for( size_t i=0; i<=steps; i++ )
+{
+    std::cout << times[i] << '\t' << x_vec[i][0] << '\t' << x_vec[i][1] << '\n';
+}
 
-    
     Outputs(Nodes,R_0,L,Y,t,Nb,T_0,t_T,P_0,t_P,R, phi, P, T, x_out, H2Ot_all);
     return;
 }
-//#%==========================================================================
-//#%ODE function to be solved. See appendix A for an explanation and
-//#%pseudocode
-//#%==========================================================================
 
-// Function to calculate the derivatives of the ODE system
-/*PetscErrorCode ODEFunction(TS ts, PetscReal t, Vec U, Vec U_t, Vec r, void *ctx) {
+void JacobianFunction(const vector_type &u, matrix_type &K, const double &t, vector_type &udot) {
     // Extract the array of state values
-    PetscFunctionBeginUser;
-    PetscScalar *u, *udot;
-    VecGetArray(U, &u);
-    VecGetArray(U_t, &udot);
-
-    // Number of ODEs (size of the state vector)
-    int N;
-    VecGetSize(U, &N);
-
-    std::valarray<double> X = std::valarray<double>(0.0,N);
-    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
-
-    for (PetscInt i = 0; i < N; i++) {
-        X[i]=u[i];
-        dXdt[i] = udot[i];
-    }
-
-    std::cout<<"Calling MyOdeFun \n";
-    MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-    //std::cout<<"Updated dY/dt \n\n";
-    // Define your ODE system and calculate derivatives
-    Vec dxdt;
-    VecDuplicate(U_t, &dxdt);
-
-    for (PetscInt i = 0; i < N; i++) {
-        u[i]=X[i];
-        udot[i] = dXdt[i];
-        VecSetValues(dxdt,1,&i,&dXdt[i],INSERT_VALUES);
-    }
-    myObserver(X,t);
-    // Restore the array
-    VecRestoreArray(U, &u);
-    VecAYPX( dxdt,-1,U_t);
-    //std::cout<<"Updated dydt \n";
-    PetscFunctionReturn(0);
-}
-*/
-
-
-void JacobianFunction(const vector_type &u, matrix_type J, const double &t, vector_type &udot) {
-    // Extract the array of state values
-
+//std::cout<<"Start Jacobian \n";
     double shift = 1e-6;
     int N = u.size();
+
 //std::cout<<"Vectors are length"<<N<<"\n";
-
-
-    std::valarray<double> X = std::valarray<double> (0.0,N);
-    std::valarray<double> dXdt = std::valarray<double>(0.0,N);
-
-    for (int i = 0; i < N; i++) {
-        X[i]=u[i];
-        dXdt[i] = udot[i];
+    matrix_type J = matrix_type(N,N);
+    for (int i =0 ;i< N; i ++){
+        for (int j =0; j< N; j ++)
+            J(i,j)=0;
     }
-    
-    std::valarray<double> Y = X;
-    std::valarray<double> dYdt = dXdt;
+
+    vector_type X = u;
+    vector_type Y = u;
+    vector_type dXdt = udot;
+    vector_type dYdt = udot;
+
 //std::cout<<"Jacobian calc 1 at t="<<t<<"\n";
     MYodeFun(Y,dYdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
     for (int i =0; i<N-1; i++){
         if(i%3==0)
             X[i]=X[i]+shift;
-
-            //std::cout<<X[i]<<"\n";
     }
 //std::cout<<"Jacobian calc 2 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
-
-    
 
     J(0,0)=(dXdt[0]-dYdt[0])/shift;
     J(0,1)=(dXdt[1]-dYdt[1])/shift;
@@ -298,22 +243,25 @@ MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,Surf
 
     X=Y;
 
-    shift = 1e-8;
+    shift = 1e-6;
     X[N-1]=Y[N-1]+shift;
 //std::cout<<"Jacobian calc 5 at t="<<t<<"\n";
     MYodeFun(X,dXdt,t,xG,xBG,m_0G,melt_RhoG,T_0G,t_TG,P_0G,t_PG,H2Ot_0G,R_0G,WG,SurfTensG,SolModelG, DiffModelG, ViscModelG, EOSModelG,CompositionG,NbG);
 
 
     for (int i =0; i<N; i++)
-    J(i,N)=(dXdt[i]-Y[i])/shift;
-
+    J(i,N-1)=(dXdt[i]-Y[i])/shift;
+//std::cout<<"Calculated Jacobian \n";
+    K=J;
+    udot = dYdt;
+    //std::cout<<"Done Jacobian \n";
     return;
 
 }
 
 //#function [dYdt,pb] =  MYodeFun(t,Y,x,xB,m_0,melt_Rho,T_0,P_0,H2Ot_0,R_0,W,SurfTens,SolFun,DiffFun,ViscFun,pb_fun,PTt_fun,Composition,Nb,t_f,T_f, dTdt, P_f, dPdt)
 
-void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb){
+void MYodeFun(const vector_type &X, vector_type  &dXdt, double t,std::valarray<double> x,std::valarray<double> xB,double m_0,double melt_Rho,std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P,double H2Ot_0,double R_0,double W,double SurfTens,std::string SolModel,std::string DiffModel,std::string ViscModel,std::string EOSModel,std::valarray<double> Composition,double Nb){
 
 
     std::valarray<double> Y= std::valarray<double>(0.0,X.size());
@@ -407,9 +355,7 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 //#%====solve hydrodynamic equation====
 //#%Compute the viscosity
     std::valarray<double> v = ViscFun(H2Ot,T,Composition,ViscModel);
-//for (int i =0;i<nx;i++)if(1)std::cout<<"viscosity at i = "<<v[i]<<"\n";
-//std::cout<<"R is "<<R<<"\n";
-//std::cout<<"R0 is "<<R_0<<"\n";
+
 //#%Compute integrated viscosity (equation A.5 from manuscript)
     auto I3fun = [v, R, R_0,x](int i){return (v[i]*pow(x[i],2))/(pow((pow(R,3)-pow(R_0,3)+pow(x[i],3)),2));};
     //double I3=trapz(I3fun,x);
@@ -420,16 +366,7 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
 
     for (int i =1; i<x.size(); i++){
         I3+= (I3fun(i)+I3fun(i-1))*((x[i]-x[i-1]))*0.5;
-
- //       std::cout<<"(x[i]-x[i-1]) is  "<<(x[i]-x[i-1])<<" \n";
- //       std::cout<<"(I3fun(i)+I3fun(i-1))is  "<<(I3fun(i)+I3fun(i-1))<<" \n";
     }
- //   if(I3<0)std::cout<<"\n\nI3 NEGATIVE \n\n";
-//std::cout<<"\n\nI3 is  "<<I3<<" \n\n";
-
-//std::cout<<" pb is "<<pb<<"\n";
-//std::cout<<" P is "<<P<<"\n";
-//std::cout<<" Laplace is "<<(2*(SurfTens)/R)<<"\n";
 
 //#%Solve Rayleigh-Plesset equation (equation A.6 from manuscript)
     double dRdt= ((pb-P-(2*(SurfTens)/R))/(12*pow(R,2)))/I3;
@@ -444,8 +381,8 @@ void MYodeFun(const std::valarray<double> &X, std::valarray<double>  &dXdt, doub
     dXdt[dJH2Odx.size()]=dRdt;
 
 
-   // std::cout<<"pb is "<<pb<<"\n"; 
-   // std::cout<<"dR/dt is "<<dRdt<<"\n"; 
+    //std::cout<<"pb is "<<pb<<"\n"; 
+    //std::cout<<"dR/dt is "<<dRdt<<"\n"; 
 
 }
 
@@ -602,15 +539,6 @@ std::valarray<double> logspace(double lower, double upper, int nodes){
 
 }
 
-
-/*double trapz(auto fun, std::valarray<double> x){
-
-    double output=0;
-    for (int i =1; i<x.size(); i++){
-        output=output+ (fun(i)+fun(i-1))*((x[i+1]-x[i]))*0.5;
-    }
-    return output;
-}*/
 
 //return first difference 
 std::valarray<double> diff(std::valarray<double> input){

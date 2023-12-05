@@ -15,80 +15,6 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     double P_0 = P[0];
     double P_f = P[-1];
 
-
-/*#%Switch-cases to get the parameter bounds for the solubility models
-    if (SolModel== 'Liu 2005'):
-        Sol_P_min = 0.1*1e6# %Pa
-        Sol_P_max = 500*1e6# %Pa
-        Sol_T_min = 700 + 273.15# %Kelvin
-        Sol_T_max = 1200 + 273.15# %kelvin
-        
-    elif (SolModel=='Ryan 2015'):
-        Sol_P_min = 0.1*1e6# %Pa
-        Sol_P_max = 0.1*1e6# %Pa
-        Sol_T_min = 900 + 273.15# %Kelvin
-        Sol_T_max = 1100 + 273.15# %kelvin
-        
-    else:
-        print('Bounds for solubility model not defined')
-        solFlag = 0# %flag to ignore bound check
-
-
-#%Switch-cases to get the parameter bounds for the diffusion models
-    if( DiffModel=='Zhang 2010 Metaluminous simple'): # %Zhang and Ni (2010) equation 15
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 500 + 273.15#; %Kelvin
-        Diff_T_max = 1200 + 273.15#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 2#; %wt. %
-        
-        
-    elif( DiffModel== 'Zhang 2010 Metaluminous'):# %Zhang and Ni (2010) equations 7a, 13, 14
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 676#; %Kelvin
-        Diff_T_max = 1900#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 8#; %wt. %
-        
-    elif( DiffModel=='Zhang 2010 Peralkaline'):# %Zhang and Ni (2010) equation 7a, 13, 16
-        Diff_P_min = 0.1*1e6#; %Pa
-        Diff_P_max = 1900*1e6#; %Pa
-        Diff_T_min = 676#; %Kelvin
-        Diff_T_max = 1900#; %kelvin
-        Diff_H2O_min = 0#; %wt. %
-        Diff_H2O_max = 8#; %wt. %
-        
-    else:
-        print('Bounds for diffusion model not defined')
-        diffFlag = 0# %flag to ignore bound check
-
-    if (solFlag ==1):
-    #%Check if conditions are appropriate for solubility model, if outside of
-    #%range raise a warning
-        if (P_0 < Sol_P_min): print('Initial pressure below solubility model range')
-        if (P_f > Sol_P_max): print('Final pressure above solubility model range')
-        if (T_0 < Sol_T_min): print('Initial temperature below solubility model range')
-        if (T_f > Sol_T_max): print('Final temperature above solubility model range')
-
-
-    if (diffFlag==1):
-        #%Check if conditions are appropriate for the diffusion model, if outside of
-        #%range raise a warning
-        if (P_0 < Diff_P_min): print('Initial pressure below diffusion model range')
-        if (P_f > Diff_P_max): print('Final pressure above diffusion model range')
-        if (T_0 < Diff_T_min): print('Initial temperature below diffusion model range')
-        if (T_f > Diff_T_max): print('Final temperature above diffusion model range')
-        H2O = [gFP.SolFun(T_f,P_0,SolModel),gFP.SolFun(T_f,P_f,SolModel),gFP.SolFun(T_0,P_0), gFP.SolFun(T_0,P_f,SolModel), H2Ot_0]
-        H2O_min = min(H2O)
-        H2O_max = max(H2O)
-        if (H2O_min < Diff_H2O_min): print('H2O will potentially be below diffusion model range')
-        if (H2O_max > Diff_H2O_max): print('H2O will potentially be above diffusion model range')
-    print(' ')
-    print('%%%Warnings or errors from Numerical Model%%%)
-    print(' ')
-    */
     return;
 } 
      
@@ -101,51 +27,7 @@ void Checks(std::string SolModel, std::string DiffModel, double t_nuc, double t_
     
 void SolubilityExplore(std::string SolModel, std::valarray<double> T_0,std::valarray<double> t_T,std::valarray<double> P_0,std::valarray<double> t_P, double R_0, double SurfTens,double H2Ot_0){
 /*
-//#%Get the selected functions
-//#[SolFun, DiffFun, ViscFun, m0_fun, pb_fun,...
-//#    PTt_fun] = getFunctions_v2(SolModel,DiffModel, ViscModel,...
-//#    EOSModel, PTtModel);
-
-//    #%Get range of solubilities following P-T-t Pathway
-//    t = numpy.linspace(0,t_T[-1],1000)
-//    #PT = PTt_fun(P_0, P_f, dPdt,T_0,T_f,dTdt,t);
-//    P = gFP.PtFun(P_0,t_P,t)
-//    P = gFP.PtFun(T_0,t_T,t)
-
-//#%Determine the intersections between the P-T-t solubility and initial
-//#%water, this determines the nucleation delay. The function called below is
-//#%from the MATLAB file exchange authored by Douglas M. Schwarz, see the
-//#%function for more details.
-
-
-//#%Solubility of water at the bubble wall including Capilary pressure
-    double H2Oeq = SolFun(T, P + (2*SurfTens/R_0),SolModel)
-    first_line = LineString(numpy.column_stack((t, numpy.ones(len(t))*H2Ot_0)))
-    second_line = LineString(numpy.column_stack((t, H2Oeq)))
-
-    [x0,y0] =  first_line.intersection(second_line)
-
-    #%Plot
-    plt.figure(1)
-    #plt.hold
-    plt.plot(t,H2Oeq, 'k-', 'linewidth', 2)
-    plt.plot(x0, y0,'marker','p','markerfacecolor','r','markeredgecolor','r','markersize',20)
-    plt.yline(H2Ot_0, 'b-', 'linewidth', 2)
-    plt.grid(1)
-    plt.box(1)
-
-    plt.ylabel('Solubility H_2O_t, (wt. %)')
-    plt.xlabel ('Time, \itt\rm (seconds)')
-
-    #%Create a legend
-    h=[]
-    h[1] = plt.plot(numpy.NaN,numpy.NaN,'linestyle','-','color','k','linewidth',2)
-    h[2] = plt.plot(numpy.NaN,numpy.NaN,'linestyle','-','color','b','linewidth',2)
-    h[3] = plt.plot(numpy.NaN,numpy.NaN,'pr','markerfacecolor','r','markeredgecolor','r','markersize',10)
-
-    lbl = {['Model solubility'],['Inital H_2O_t, (wt. %)'],['Saturation']}
-    #%Set positions of the Legend
-    plt.legend(h,lbl,'Location','northeast','FontName','Times New Roman','FontSize',10)*/
+*/
 }
 
 //#%==========================================================================
@@ -153,66 +35,7 @@ void SolubilityExplore(std::string SolModel, std::valarray<double> T_0,std::vala
 //#%==========================================================================
 void plotting(std::valarray<double> t,std::valarray<double> R,std::valarray<double> phi,std::valarray<double> P,std::valarray<double> T,std::valarray<double> x_out,std::valarray<double> H2Ot_all){
 /*
-    #%Plot the results of the numerical model
-    plt.figure(1)
-    plt.subplot(2,2,1)
-    #plt.hold on
-    plt.plot(t, R*1e6)
-    plt.grid(1)
-    plt.box(1)
-    plt.ylabel('Bubble radius, \itR\rm (\mum)')
-    plt.xlabel ('Time, \itt\rm (seconds)')
-
-    plt.subplot(2,2,2)
-    #plt.hold on
-    plt.plot(t, phi)
-    plt.grid(1)
-    plt.box(1)
-    plt.ylabel('Gas volume fraction, \phi')
-    plt.xlabel ('Time, \itt\rm (seconds)')
-
-    plt.subplot(2,2,3)
-    #plt.hold on
-    plt.plot(t, P*1e-6)
-    plt.ylabel('Pressure, (MPa)')
-    plt.xlabel ('Time, \itt\rm (seconds)')
-    plt.grid(1)
-    plt.box(1)
-
-    plt.subplot(2,2,4)
-    plt.plot(t, T)
-    plt.ylabel('Temperature, \itT\rm  (Kelvin)')
-    plt.xlabel ('Time, \itt\rm (seconds)')
-    plt.grid(1)
-    plt.box(1)
-
-    #plt.show()
-
-    plt.figure(2)
-    ClrMap = plt.jet(); #%Set colourmap to jet
-    #%Set the colour values based on time
-    colour_values = numpy.linspace(t[0],t[-1])
-    #plt.hold on
-    for i in range(numpy.size(x_out,1)):
-        #Clr = [scipy.interpolate.interp1d(colour_values,ClrMap[:,0],t[i]), scipy.interpolate.interp1d(colour_values,ClrMap[:,1],t[i]), scipy.interpolate.interp1d(colour_values,ClrMap[:,2],t[i])]
-        plt.plot(x_out[:,i]*1e6,H2Ot_all[:,i])
-
-    Cmap = ClrMap
-    #plt.colormap(plt.gca,Cmap)
-    hcb = plt.colorbar
-    #plt.caxis([colour_values[0]],colour_values[-1])
-    #colorTitleHandle = plt.get(hcb,'Title')
-    #titleString = {'time, \itt\rm (s)'}
-    #set(colorTitleHandle ,'String',titleString,'FontName','Times New Roman','FontSize',12)
-    #set(hcb,'YTick',colour_values[0]:colour_values[-1]/5:colour_values[-1])
-
-    plt.grid(1)
-    plt.box(1)
-
-    plt.xlabel('Distance from bubble, (\mum)')
-    plt.ylabel('H_2O_t, (wt. %)')
-    plt.show()
-
+  
 */
 }
 
@@ -222,13 +45,6 @@ void plotting(std::valarray<double> t,std::valarray<double> R,std::valarray<doub
 int main(){
 
     std::string Operation = "Run Model";
-
-  
-    //"""
-    //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-    //%Set the model properties
-    //%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-    //"""
 
     //#%Melt composition
     double wt_dry = 0.01;// #H2O wt. % that defines "dry"
@@ -284,13 +100,8 @@ int main(){
     double R_0 = 3e-5; //#R_0 (m) set independently
    
     //#Finite difference parameters
-    int Nodes = 10; //#Number of nodes in spatial discretization
-    
-    //#%Numerical tolerance:         
-    //#%[Absolute tolerance, relative tolerance], see:
-    //#% https://www.mathworks.com/help/simbio/ref/absolutetolerance.html
-    //#% https://www.mathworks.com/help/simulink/gui/relative-tolerance.html
-    //#%For additional information
+    int Nodes = 50; //#Number of nodes in spatial discretization
+
     std::valarray<double> Numerical_Tolerance = {1e-5, 1e-5};
  
   
@@ -303,16 +114,7 @@ int main(){
     std::valarray<double> P_0 = {1*1e5};
     std::valarray<double> t_P = {0};
        
-    double H2Ot_0 = 1.5;  
-        
-    //#%%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-    //#%Run the check function, solubility explore or numerical model
-    //#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-
-    //#%Checks input parameters to detect if any are out of component model
-    //#%calibration (from literature), or if there are errors in parameter
-    //#%signs (e.g., negative temperature rate for positive temperature change)
-    Checks(SolModel, DiffModel, t_nuc, t_f,T_0, P_0, H2Ot_0);
+    double H2Ot_0 = 0.15;  
         
     //#%The switch which either runs the parameter exploration or the model
     if (Operation=="Solubility Explore") 
@@ -352,20 +154,11 @@ int main(){
     return 0;
 }
 
-//#%
-//#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-//#%Additional functions used by this script
-//#%+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!+!
-
-
-
 
 double  Radius(double Nb,double Phi){
     double meltvolume = 1./Nb;
     double gasvolume = Phi*meltvolume/(1 - Phi);
     return pow((gasvolume/((4.0/3.0)*PI)),(1.0/3.0));
     }
-
-//#function [x0,y0,iout,jout] = intersections(x1,y1,x2,y2,robust)
 
 
